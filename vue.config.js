@@ -4,7 +4,7 @@ module.exports = defineConfig({
   devServer: {
     proxy: {
       '^/api': {
-        target: 'https://kitchen-tech-fqghavb0fychfkhm.brazilsouth-01.azurewebsites.net',
+        target: 'https://kitchen-tech-backend.onrender.com',
         changeOrigin: true
       }
     }
