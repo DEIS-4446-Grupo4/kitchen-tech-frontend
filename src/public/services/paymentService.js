@@ -33,5 +33,24 @@ export const paymentService = {
             throw error;
         }
 
+    },
+
+    async getPaymentsByRestaurantService(restaurantId) {
+        try {
+            const token = getAuthToken();
+            const response = await axiosInstance.get(`${API_URL}/restaurant/${restaurantId}`, {
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            });
+            if (response.status === 200) {
+                return response.data;
+            } else {
+                throw new Error('Error fetching payments');
+            }
+        } catch (error) {
+            console.error('Error in getPaymentsByRestaurantService:', error.response ? error.response.data : error.message);
+            throw error;
+        }
     }
 }

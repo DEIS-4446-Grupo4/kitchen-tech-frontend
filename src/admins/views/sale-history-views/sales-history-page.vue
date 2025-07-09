@@ -16,6 +16,41 @@
               <h2>{{ totalSales }}</h2>
             </div>
           </div>
+          <div class="row text-center table-responsive justify-content-center">
+            <table class="table table-striped table-hover align-center" style="max-width: 1120px;">
+              <thead>
+              <tr>
+                <th class="p-3">Date & Time</th>
+                <th class="p-3">Document Type</th>
+                <th class="p-3">Correlative</th>
+                <th class="p-3">Customer</th>
+                <th class="p-3">Amount</th>
+                <th class="p-3">Payment Type</th>
+                <th class="p-3">Status</th>
+                <th class="p-3">Action</th>
+              </tr>
+              </thead>
+              <tbody>
+                <tr v-for="sale in sales" :key="sale.id">
+                  <td class="py-4">{{ formatDateTime(sale.dateTime) }}</td>
+                  <td class="py-4">{{ sale.documentType }}</td>
+                  <td class="py-4">{{ sale.correlative }}</td>
+                  <td class="py-4">{{ sale.clientId ? 'Cliente #' + sale.clientId : 'No Client' }}</td>
+                  <td class="py-4">S/{{ sale.amount.toFixed(2) }}</td>
+                  <td class="py-4">{{ sale.paymentType }}</td>
+                  <td class="py-4">
+                    <span :class="{
+                      'text-success': sale.saleStatus === 'COMPLETED',
+                      'text-danger': sale.saleStatus === 'CANCELLED'
+                    }">{{ sale.saleStatus }}</span>
+                  </td>
+                  <td class="p-3">
+                    <button class="btn btn-outline-primary btn-sm">Cancel</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
@@ -26,6 +61,7 @@
 import HeaderComponent from "@/admins/components/header-component.vue";
 import SidebarComponent from "@/admins/components/sidebar-component.vue";
 import userService from "@/public/services/userService";
+import {paymentService} from "@/public/services/paymentService";
 
 export default {
   components: {
@@ -38,6 +74,8 @@ export default {
       userRole: '',
       totalSalesSoles: 0,
       totalSales: 0,
+      sales: [],
+      restaurantId: null,
     };
   },
   beforeMount() {
@@ -53,21 +91,31 @@ export default {
           const restaurantData = await userService.getRestaurantById(restaurantId);
           this.restaurantName = restaurantData.name;
           this.userRole = userData.role;
+          this.restaurantId = restaurantId;
+
+          await this.loadSalesData(restaurantId);
         }
       } catch (error) {
         console.error("Error fetching restaurant data: ", error);
       }
     },
-    async fetchTotalSales(restaurantId) {
+    async loadSalesData(restaurantId) {
       try {
-        // Supón que usas salesService o axios directamente
-        const response = await fetch(`/api/sales/total?restaurantId=${restaurantId}`);
-        const data = await response.json();
-
-        this.totalSales = data.total || 0;
+        this.sales = await paymentService.getPaymentsByRestaurantService(restaurantId);
       } catch (error) {
-        console.error("Error fetching total sales: ", error);
+        console.error("Error loading sales data: ", error);
       }
+    },
+    formatDateTime(dateTime) {
+      const date = new Date(dateTime);
+      return date.toLocaleString('es-PE', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
     }
   }
 }
@@ -96,16 +144,24 @@ h1 {
   color: #31304A;
   font-size: 2.5rem;
 }
-h2 {
+h2,
+tr {
   color: #31304A;
   line-height: 1;
   font-size: 2rem;
   font-weight: 600;
 }
-p {
+p,
+td {
   color: #31304A;
   line-height: 1;
   font-size: 1.2rem;
   font-weight: 200;
+}
+tr {
+  font-size: 1.1rem;
+}
+td {
+  font-size: 0.9rem;
 }
 </style>
