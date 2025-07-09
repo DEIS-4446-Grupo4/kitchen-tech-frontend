@@ -46,10 +46,16 @@
         <span>S/{{ localIgv.toFixed(2) }}</span>
       </div>
     </div>
-    <button class="charge-button" @click="charge">
+    <button class="charge-button" @click="showPaymentModal = true">
       <span>Charge</span>
       <span>S/{{ localTotal.toFixed(2) }}</span>
     </button>
+    <PaymentModalComponent
+        :is-visible="showPaymentModal"
+        :restaurant-id="restaurantId"
+        @close-payment-modal="closePaymentModal"
+        @confirm-payment="handlePaymentConfirmed"
+    />
   </div>
 </template>
 
@@ -57,9 +63,12 @@
 import SaveOrderComponent from "@/admins/views/cassing-views/components/save-order-component.vue";
 import {accountService} from "@/public/services/accountsService";
 import {tablesService} from "@/public/services/tablesService";
+import PaymentModalComponent from "@/admins/views/cassing-views/components/payment-modal-component.vue";
+import {access} from "@babel/core/lib/config/validation/option-assertions";
+import {paymentService} from "@/public/services/paymentService";
 
 export default {
-  components: {SaveOrderComponent},
+  components: {PaymentModalComponent, SaveOrderComponent},
   props: {
     cart: {
       type: Array,
@@ -80,7 +89,7 @@ export default {
     restaurantId: {
       type: String,
       required: true
-    }
+    },
   },
   created() {
     this.updateCartSummary();
@@ -96,9 +105,12 @@ export default {
       localTotal: this.total,
       discountType: 'amount',
       showModal: false,
+      showPaymentModal: false,
+      selectedPaymentType: null,
     };
   },
   methods: {
+    access,
     addCustomer() {
       this.$emit('add-customer');
     },
@@ -189,6 +201,9 @@ export default {
     closeModal(){
       this.showModal = false;
     },
+    closePaymentModal(){
+      this.showPaymentModal = false;
+    },
     updateCartSummary() {
       const rawTotal = this.localCart.reduce((acc, item) => acc + item.price * item.quantity, 0);
 
@@ -203,9 +218,25 @@ export default {
         total: this.localTotal
       });
     },
-    charge() {
-      this.$emit('charge');
-    },
+    async handlePaymentConfirmed(paymentType) {
+      try {
+        const payload = {
+          restaurantId: this.restaurantId,
+          amount: this.localTotal.toFixed(2),
+          documentType: "TICKET",
+          clientId: null,
+          paymentType: paymentType,
+          saleStatus: "COMPLETED"
+        };
+        console.log(payload);
+        const result = await paymentService.createSale(payload);
+        console.log('Sale created successfuly', result);
+
+        this.$router.push(`/${this.restaurantName}/${this.userRole}/sales-history`);
+      } catch (error) {
+        alert("Error al registrar la venta");
+      }
+    }
   },
   watch: {
     cart: {

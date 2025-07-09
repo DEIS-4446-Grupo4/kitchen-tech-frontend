@@ -2,6 +2,9 @@
   <main class="main-content">
       <router-view/>
   </main>
+  <head>
+    <title>Kitchentech</title>
+  </head>
 </template>
 
 <script>

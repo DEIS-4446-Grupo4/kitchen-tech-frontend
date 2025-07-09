@@ -3,7 +3,7 @@ import LoginPage from "@/public/views/login-page.vue";
 import SignupPage from "@/public/views/signup-page.vue";
 import CasingPage from "@/admins/views/cassing-views/casing-page.vue";
 import SavedAccountsPage from "@/admins/views/saved-accounts-views/saved-accounts-page.vue";
-import SalesHistoryPage from "@/admins/views/sales-history-page.vue";
+import SalesHistoryPage from "@/admins/views/sale-history-views/sales-history-page.vue";
 import CasingMovementsPage from "@/admins/views/casing-movements-page.vue";
 import ProductsComponent from "@/admins/views/products-views/products-page.vue";
 import SalesReportComponent from "@/admins/views/sales-report-page.vue";

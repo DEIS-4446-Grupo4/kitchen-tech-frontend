@@ -173,7 +173,14 @@ export default {
 
     },
     charge() {
-      // Lógica para procesar el cobro
+      this.showPaymentModal = true;
+    },
+    handleConfirmPayment(method) {
+      this.selectedPaymentType = method;
+      this.showPaymentModal = false;
+
+      // Aquí puedes hacer la lógica para guardar la venta
+      this.saveOrder(method);
     },
   }
 }
