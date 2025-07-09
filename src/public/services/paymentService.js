@@ -53,7 +53,15 @@ export const paymentService = {
             throw error;
         }
     },
-
+    async getSaleSummary (restaurantId){
+        const token = getAuthToken();
+        const response = await axiosInstance.get(`${API_URL}/summary/${restaurantId}`, {
+            headers: {
+                Authorization: `Bearer ${token}`
+            }
+        });
+        return response.data;
+    },
     async cancelSale(saleId){
         try {
             const token = getAuthToken();

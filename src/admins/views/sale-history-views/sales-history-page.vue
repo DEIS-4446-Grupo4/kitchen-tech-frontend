@@ -97,6 +97,10 @@ export default {
           this.restaurantId = restaurantId;
 
           await this.loadSalesData(restaurantId);
+
+          const summary = await paymentService.getSaleSummary(this.restaurantId);
+          this.totalSales = summary.totalSales;
+          this.totalSalesSoles = summary.totalAmount;
         }
       } catch (error) {
         console.error("Error fetching restaurant data: ", error);
@@ -104,7 +108,10 @@ export default {
     },
     async loadSalesData(restaurantId) {
       try {
-        this.sales = await paymentService.getPaymentsByRestaurantService(restaurantId);
+
+        const response = await paymentService.getPaymentsByRestaurantService(restaurantId);
+        this.sales = response.data;
+        this.sales = response.sort((a, b) => new Date(b.dateTime) - new Date(a.dateTime));
       } catch (error) {
         console.error("Error loading sales data: ", error);
       }
