@@ -52,5 +52,24 @@ export const paymentService = {
             console.error('Error in getPaymentsByRestaurantService:', error.response ? error.response.data : error.message);
             throw error;
         }
+    },
+
+    async cancelSale(saleId){
+        try {
+            const token = getAuthToken();
+            const response = await axiosInstance.put(`${API_URL}/${saleId}/cancel`, {}, {
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            });
+            if (response.status === 200) {
+                return response.data;
+            } else {
+                throw new Error('Error cancelling sale');
+            }
+        } catch (error) {
+            console.error("Error cancelling sale:", error);
+            throw error;
+        }
     }
 }

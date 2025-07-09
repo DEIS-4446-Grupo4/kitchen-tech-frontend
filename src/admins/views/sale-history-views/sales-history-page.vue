@@ -44,8 +44,11 @@
                       'text-danger': sale.saleStatus === 'CANCELLED'
                     }">{{ sale.saleStatus }}</span>
                   </td>
-                  <td class="p-3">
-                    <button class="btn btn-outline-primary btn-sm">Cancel</button>
+                  <td class="py-3">
+                    <button class="btn button btn-sm px-3"
+                            @click="cancelSale(sale.id)"
+                            v-if="sale.saleStatus ? 'CANCELLED' !== sale.saleStatus : true"
+                    >Cancel</button>
                   </td>
                 </tr>
               </tbody>
@@ -106,6 +109,17 @@ export default {
         console.error("Error loading sales data: ", error);
       }
     },
+    async cancelSale(saleId) {
+      if (confirm("Are you sure you want to cancel this sale?")) {
+        try {
+          await paymentService.cancelSale(saleId);
+          // Recargar la lista de ventas actualizada
+          await this.loadSalesData(this.restaurantId);
+        } catch (error) {
+          alert("Error cancelling sale.");
+        }
+      }
+    },
     formatDateTime(dateTime) {
       const date = new Date(dateTime);
       return date.toLocaleString('es-PE', {
@@ -163,5 +177,14 @@ tr {
 }
 td {
   font-size: 0.9rem;
+}
+.button {
+  background: #D3D2E5;
+  color: #31304A;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: 800;
+  flex-shrink: 0;
 }
 </style>
