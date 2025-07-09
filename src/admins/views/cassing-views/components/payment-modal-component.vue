@@ -47,6 +47,10 @@ export default {
     restaurantId: {
       type: String,
       required: true
+    },
+    accountId: {
+      type: String,
+      required: true
     }
   },
   data() {
@@ -63,7 +67,7 @@ export default {
     },
     confirmPayment() {
       if (this.selectedPayment) {
-        this.$emit("confirm-payment", this.selectedPayment);
+        this.$emit("confirm-payment", this.selectedPayment, this.accountId);
       }
     }
   }

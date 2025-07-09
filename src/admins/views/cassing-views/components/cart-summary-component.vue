@@ -218,7 +218,7 @@ export default {
         total: this.localTotal
       });
     },
-    async handlePaymentConfirmed(paymentType) {
+    async handlePaymentConfirmed(paymentType, accountId) {
       try {
         const payload = {
           restaurantId: this.restaurantId,
@@ -230,6 +230,12 @@ export default {
         };
         console.log(payload);
         const result = await paymentService.createSale(payload);
+        try {
+          await accountService.deleteAccount(accountId);
+        } catch (error) {
+          console.error("Error deleting account:", error);
+        }
+
         console.log('Sale created successfuly', result);
 
         this.$router.push(`/${this.restaurantName}/${this.userRole}/sales-history`);
