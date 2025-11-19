@@ -23,14 +23,11 @@
 <script>
 export default {
   name: 'SideBarComponent',
-  props: {
-    restaurantName: {
-      type: String,
-      required: true,
-    },
-    role: {
-      type: String,
-      required: true,
+  created() {
+    const restaurantData = JSON.parse(localStorage.getItem('userData'));
+    if (restaurantData) {
+      this.restaurantName = restaurantData.name;
+      this.role = restaurantData.role;
     }
   },
   data() {

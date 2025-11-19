@@ -53,6 +53,7 @@
 
 <script>
 import authService from "@/public/services/authService";
+import userService from "@/public/services/userService";
 
 export default {
   data() {
@@ -81,13 +82,13 @@ export default {
             localStorage.setItem('token', response.token);
 
             // Guarda todos los datos necesarios en userData
-            const userData = {
-              id: response.id,
-              username: this.username,
+            const userData = await userService.getRestaurantById(response.restaurantId);
+
+            localStorage.setItem('userData', JSON.stringify({
               restaurantId: response.restaurantId,
-              role: response.role,
-            };
-            localStorage.setItem('userData', JSON.stringify(userData));
+              name: userData.name,
+              role: response.role
+            }));
 
             // Redirige a la vista adecuada después del login
             const basePath = `/${this.username}/${response.role}`;
