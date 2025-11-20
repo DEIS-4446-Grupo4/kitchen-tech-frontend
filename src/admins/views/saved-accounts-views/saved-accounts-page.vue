@@ -5,9 +5,9 @@
       <header-component :restaurant-name="restaurantName" :role="userRole" class="header" />
       <div class="page-container">
         <searchbar-component
-            v-if="restaurantName"
             :restaurant-name="restaurantName"
             :user-role="userRole"
+            :accounts="accounts"
         />
         <div class="account-cards">
           <template v-if="accounts.length === 0">
@@ -38,6 +38,7 @@ import SearchbarComponent from "@/admins/views/saved-accounts-views/components/s
 import AccountCardComponent from "@/admins/views/saved-accounts-views/components/account-card-component.vue";
 import {accountService} from "@/public/services/accountsService";
 import {tablesService} from "@/public/services/tablesService";
+import {accountsStore} from "@/public/stores/accountStore";
 
 export default {
   components: {
@@ -51,20 +52,16 @@ export default {
       restaurantName: '',
       userRole: '',
       accounts: [],
-
     };
   },
-  beforeMount() {
-    this.fetchUserData();
+  async created() {
+    const userData = JSON.parse(localStorage.getItem("userData"));
+    this.restaurantId = userData.restaurantId;
+    this.restaurantName = userData['business-name'];
+    this.userRole = userData.role;
 
-    const userData = JSON.parse(localStorage.getItem('userData'));
-    if (userData) {
-      this.restaurantName = userData['business-name'];
-      this.userRole = userData.role;
-      this.restaurantId = localStorage.getItem('restaurantId'); // Obtener el ID del restaurante de localStorage
-    }
-
-    this.loadAccounts();
+    await accountsStore.load(this.restaurantId);
+    this.accounts = accountsStore.accounts;
   },
   methods: {
     async fetchUserData() {
@@ -81,47 +78,24 @@ export default {
         console.error("Error fetching restaurant data: ", error);
       }
     },
-    async loadAccounts() {
-      const userData = JSON.parse(localStorage.getItem("userData"));
-      const restaurantId = userData.restaurantId;
-
-      try {
-        const accounts = await accountService.getAccountsByRestaurant(restaurantId);
-        this.accounts = accounts.map(account => ({
-          ...account,
-          tableNumber: account.table?.tableNumber || null,
-          accountName: account.accountName || null,
-        }));
-        this.filteredProducts = this.accounts;
-      } catch (error) {
-        console.error("Failed to load products", error);
-      }
-    },
     async deleteAccount(accountId) {
-      if (confirm("Are you sure you want to remove this account?")) {
-        try {
-          // Primero obtén la cuenta antes de eliminarla
-          const account = await accountService.getAccountById(accountId);
-          console.log(account);
-          const tableId = account.table.id; // Obtén el tableId de la cuenta
+      if (!confirm("Are you sure you want to remove this account?")) return;
+      try {
+        const account = await accountService.getAccountById(accountId);
+        const tableId = account.table.id;
 
-          // Ahora elimina la cuenta
-          const response = await accountService.deleteAccount(accountId);
-          console.log('Respuesta de eliminación:', response);
+        await accountService.deleteAccount(accountId);
 
-          // Actualiza el estado de la mesa
-          const table = await tablesService.getTableById(tableId);
-          table.tableStatus = 0;
+        const table = await tablesService.getTableById(tableId);
+        table.tableStatus = 0;
+        await tablesService.updateTable(table);
 
-          await tablesService.updateTable(table);
+        // refresca store en 1 sola llamada
+        await accountsStore.refresh(this.restaurantId);
 
-          // Vuelve a cargar los productos después de la eliminación
-          await this.loadAccounts();
-        } catch (error) {
-          console.error('Error during account deletion process:', error);
-        }
-      } else {
-        console.log("Deletion canceled.");
+        this.accounts = accountsStore.accounts;
+      } catch (e) {
+        console.error(e);
       }
     },
     async loadAccountProducts(accountId) {

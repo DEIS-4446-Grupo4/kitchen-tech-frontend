@@ -2,7 +2,9 @@
   <div class="product-card" @click="selectAccount">
     <div class="card-header">
       <p class="account-name">{{ account.accountName }}</p>
-      <p class="account-client">{{ account.client === null ? 'Account without client' : account.client.fullName }}</p>
+      <p class="account-client">
+        {{ account.client?.fullName ?? 'Account without client' }}
+      </p>
     </div>
     <div class="card-body">
         <img

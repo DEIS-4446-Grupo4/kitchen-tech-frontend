@@ -30,8 +30,6 @@
 </template>
 
 <script>
-import {accountService} from "@/public/services/accountsService";
-
 export default {
   props: {
     restaurantName: {
@@ -41,55 +39,35 @@ export default {
     userRole: {
       type: String,
       required: true,
+    },
+    accounts: {
+      type: Array,
+      default: () => []
     }
   },
   data() {
     return {
       searchQuery: '',
-      accounts: [],
       filteredAccounts: [],
       activeMode: 'accounts',
     };
-  },
-  beforeMount() {
-    this.activeMode = this.$route.path.includes("tables") ? 'tables' : 'accounts';
-    if(this.restaurantName) {
-      this.loadAccounts();
-    } else {
-      console.error('Restaurant name is required');
-    }
-    document.addEventListener('click', this.handleClickOutside);
   },
   beforeUnmount() {
     document.removeEventListener('click', this.handleClickOutside);
   },
   methods: {
-    async loadAccounts() {
-      const userData = JSON.parse(localStorage.getItem("userData"));
-      const restaurantId = userData.restaurantId;
-
-      try {
-        const accounts = await accountService.getAccountsByRestaurant(restaurantId);
-        this.accounts = accounts;
-        this.filteredProducts = this.accounts;
-      } catch (error) {
-        console.error("Failed to load products", error);
-      }
-    },
     filterAccounts() {
+      if (!Array.isArray(this.accounts)) return;
       const query = this.searchQuery.toLowerCase();
-      this.filteredAccounts = this.accounts.filter((account) =>
-          account.accountName.toLowerCase().includes(query)
+      const results = this.accounts.filter(a =>
+          a.accountName?.toLowerCase().includes(query)
       );
 
-      // Verifica si no hay coincidencias
-      if (this.filteredAccounts.length === 0) {
-        this.filteredAccounts = -1; // Si quieres usar -1 para indicar que no hay resultados
-      }
+      this.filteredAccounts = results.length ? results : -1;
     },
-    handleClickOutside(event) {
-      if (!this.$el.contains(event.target)) {
-        this.filteredAccounts = 0;
+    handleClickOutside(e) {
+      if (!this.$el.contains(e.target)) {
+        this.filteredAccounts = null;
       }
     },
     onSearchFocus() {
