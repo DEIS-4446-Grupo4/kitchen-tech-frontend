@@ -35,11 +35,11 @@ export default {
       sidebarButtons: [
         { label: 'Casing', route: 'casing' },
         { label: 'Saved Accounts', route: 'saved-accounts' },
-        { label: 'Sales History', route: 'sales-history' },
-        { label: 'Casing Movements', route: 'casing-movements' },
+        //{ label: 'Sales History', route: 'sales-history' },
+        //{ label: 'Casing Movements', route: 'casing-movements' },
         { label: 'Products', route: 'products' },
-        { label: 'Sales Report', route: 'sales-report' },
-        { label: 'Inventory', route: 'inventory' },
+        //{ label: 'Sales Report', route: 'sales-report' },
+        //{ label: 'Inventory', route: 'inventory' },
       ]
     };
   },

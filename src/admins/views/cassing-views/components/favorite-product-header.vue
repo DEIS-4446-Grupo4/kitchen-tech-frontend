@@ -1,111 +1,82 @@
 <template>
   <div class="products-header">
+    <!-- SEARCHBAR -->
     <input
         class="search-bar"
         type="text"
         v-model="searchQuery"
-        placeholder="Search products..."
-        @input="filterProducts"
-        @focus="onSearchFocus"
+        placeholder="Buscar productos..."
+        @focus="showDropdown = true"
+
     />
-    <ul v-if="filteredProducts.length && searchQuery" class="dropdown">
-      <li v-for="product in filteredProducts" :key="product.id" class="product-card">
+    <!-- RESULTADOS -->
+    <ul v-if="showDropdown && filteredProducts.length" class="dropdown">
+      <li
+          v-for="p in filteredProducts"
+          :key="p.id"
+          class="product-card"
+      >
         <div class="card-content">
-          <span class="product-name">{{ product.productName }}</span>
-          <span class="product-price">S/.{{ product.productPrice }}</span>
+          <span class="product-name">{{ p.productName }}</span>
+          <span class="product-price">S/. {{ p.productPrice }}</span>
         </div>
-        <button @click="addProductToCart(product)" class="add-button">+</button>
+        <button @click="addProductToCart(p)" class="add-button">+</button>
       </li>
     </ul>
-    <button class="edit-button" @click="toggleEditMode">{{ isEditMode ? 'Save' : 'Edit' }}</button>
+
+    <button class="edit-button" @click="$emit('toggle-edit-mode')">
+      {{ isEditMode ? "Guardar" : "Editar" }}
+    </button>
   </div>
 </template>
 
 <script>
-import { productsService } from "@/public/services/productsService";
+import { productsStore } from "@/public/stores/productsStore";
 
 export default {
+  name: "FavoriteProductHeader",
   props: {
-    isEditMode: {
-      type: Boolean,
-      default: false,
-    },
-    restaurantName: {
-      type: String,
-      required: true,
-    },
-    cart: {
-      type: Array,
-      required: true,
-    },
-    selectedSlot: Number
+    isEditMode: Boolean,
+    restaurantName: String,
+    cart: Array,
+    selectedSlot: Number,
   },
   data() {
     return {
-      searchQuery: '',
-      products: [], // Almacenar todos los productos del restaurante
-      filteredProducts: [], // Productos filtrados por la búsqueda
+      searchQuery: "",
+      showDropdown: false
     };
   },
-  beforeMount() {
-    if(this.restaurantName) {
-      this.loadProducts();
-    } else {
-      console.error('Restaurant name is required');
+  computed: {
+    filteredProducts() {
+      if (!this.searchQuery) return [];
+      const q = this.searchQuery.toLowerCase();
+      const filtered = productsStore.products.filter((p) =>
+          p.productName.toLowerCase().includes(q)
+      );
+      return filtered;
     }
-    document.addEventListener('click', this.handleClickOutside);
   },
+  mounted() {
+    document.addEventListener("click", this.handleClickOutside);
+  },
+
   beforeUnmount() {
-    document.removeEventListener('click', this.handleClickOutside);
+    document.removeEventListener("click", this.handleClickOutside);
   },
   methods: {
-    async loadProducts() {
-      const userData = JSON.parse(localStorage.getItem("userData"));
-      const restaurantId = userData.restaurantId;
-
-      try {
-        const products = await productsService.getProductsByRestaurant(restaurantId);
-        this.products = products;
-        this.filteredProducts = this.products;
-      } catch (error) {
-        console.error("Failed to load products", error);
-      }
-    },
-    filterProducts() {
-      try {
-        const query = this.searchQuery.toLowerCase(); // Convierte la consulta a minúsculas
-        this.filteredProducts = this.products.filter((product) =>
-            product.productName.toLowerCase().includes(query) // Asegúrate de usar el nombre correcto
-        );
-      } catch (error) {
-        console.log("There are not products to show");
-      }
-    },
-    addProductToSlot(product){
-      if(this.selectedSlot !== null){
-        this.$emit('add-to-slot', {product, slot: this.selectedSlot });
-      }
-    },
     addProductToCart(product) {
-      const price = {
+      this.$emit("add-to-cart", {
         ...product,
-        price: product.productPrice // Asumimos que productPrice contiene el precio
-      };
-      this.$emit('add-to-cart', price);
+        price: product.productPrice,
+      });
     },
-    toggleEditMode() {
-      this.$emit('toggle-edit-mode');
-    },
-    handleClickOutside(event) {
-      if (!this.$el.contains(event.target)) {
-        this.filteredProducts = [];
+
+    handleClickOutside(e) {
+      if (!this.$el.contains(e.target)) {
+        this.showDropdown = false;
       }
-    },
-    onSearchFocus() {
-      if (this.searchQuery) {
-        this.filterProducts();
-      }
-    },
+    }
   },
 };
 </script>

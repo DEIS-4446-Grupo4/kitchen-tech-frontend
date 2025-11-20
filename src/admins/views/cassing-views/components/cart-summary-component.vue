@@ -33,7 +33,7 @@
       <button class="save-sale" @click="showModal = true">Save Sale</button>
       <save-order-component
           :is-visible="showModal"
-          :restaurant-id="restaurantId"
+          :restaurant-id="String(restaurantId)"
           @save-sale="saveOrder"
           @close-modal="closeModal"
       />
@@ -78,7 +78,7 @@ export default {
       default: 0
     },
     restaurantId: {
-      type: String,
+      type: [String],
       required: true
     }
   },
