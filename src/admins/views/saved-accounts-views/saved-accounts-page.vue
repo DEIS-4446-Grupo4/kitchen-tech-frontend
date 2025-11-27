@@ -4,6 +4,9 @@
     <div class="main-content">
       <header-component :restaurant-name="restaurantName" :role="userRole" class="header" />
       <div class="page-container">
+        <div v-if="loading" class="loader-overlay">
+          <div class="loader"></div>
+        </div>
         <searchbar-component
             :restaurant-name="restaurantName"
             :user-role="userRole"
@@ -15,6 +18,9 @@
               <label>You don't have created any product yet.</label>
             </div>
           </template>
+          <div v-if="loading" class="loader-overlay">
+            <div class="loader"></div>
+          </div>
           <template v-else-if="accounts.length !== 0">
             <AccountCardComponent
                 v-for="account in accounts"
@@ -52,32 +58,36 @@ export default {
       restaurantName: '',
       userRole: '',
       accounts: [],
+      loading: true,
     };
   },
   async created() {
-    const userData = JSON.parse(localStorage.getItem("userData"));
-    this.restaurantId = userData.restaurantId;
-    this.restaurantName = userData['business-name'];
-    this.userRole = userData.role;
-
-    await accountsStore.load(this.restaurantId);
-    this.accounts = accountsStore.accounts;
+    await this.initializePage();
   },
   methods: {
-    async fetchUserData() {
+    async initializePage() {
       try {
         const userData = JSON.parse(localStorage.getItem("userData"));
-        const restaurantId = userData?.restaurantId;
 
-        if (restaurantId) {
-          const restaurantData = await userService.getRestaurantById(restaurantId);
-          this.restaurantName = restaurantData.name;
-          this.userRole = userData.role;
-        }
-      } catch (error) {
-        console.error("Error fetching restaurant data: ", error);
+        if (!userData) return;
+
+        // Datos directos de localStorage (instantáneo)
+        this.userRole = userData.role;
+        this.restaurantId = userData.restaurantId;
+
+        // Obtener datos completos del restaurante (una sola vez)
+        const restaurant = await userService.getRestaurantById(this.restaurantId);
+        this.restaurantName = restaurant.name;
+
+        await accountsStore.loadAccounts(this.restaurantId);
+        this.accounts = accountsStore.accounts;
+      } catch (err) {
+        console.error("Error initializing page:", err);
+      } finally {
+        this.loading = false;
       }
     },
+
     async deleteAccount(accountId) {
       if (!confirm("Are you sure you want to remove this account?")) return;
       try {
@@ -156,5 +166,30 @@ export default {
 .no-accounts{
   text-align: center;
   color: #31304A;
+}
+.loader {
+  border: 6px solid #ddd;
+  border-top: 6px solid #31304A;
+  border-radius: 50%;
+  width: 55px;
+  height: 55px;
+  animation: spin 0.9s linear infinite;
+}
+.loader-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: rgba(255,255,255,0.7);
+  backdrop-filter: blur(2px);
+  z-index: 20;
+}
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 </style>

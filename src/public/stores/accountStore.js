@@ -3,21 +3,58 @@ import { accountService } from "@/public/services/accountsService";
 
 export const accountsStore = reactive({
     accounts: [],
+    lastRestaurantId: null,
+    loading: false,
 
-    async load(restaurantId) {
-        if (this.accounts.length > 0) return; // evita recargas
+    async loadAccounts(restaurantId) {
+        if (!restaurantId) return;
 
-        const accounts = await accountService.getAccountsByRestaurant(restaurantId);
+        // si ya existe cache en memoria y es del mismo restaurant
+        if (this.accounts.length && this.lastRestaurantId === restaurantId) {
+            return;
+        }
 
-        this.accounts = accounts.map(account => ({
+        this.loading = true;
+        this.lastRestaurantId = restaurantId;
+
+        try {
+            // 1. carga instantánea desde localStorage
+            const cached = localStorage.getItem("accounts_" + restaurantId);
+            if (cached) {
+                this.accounts = JSON.parse(cached);
+            }
+
+            // 2. pide data nueva a la nube
+            const data = await accountService.getAccountsByRestaurant(restaurantId);
+
+            this.accounts = data.map(account => ({
+                ...account,
+                tableNumber: account.table?.tableNumber || null,
+                accountName: account.accountName || null,
+            }));
+
+            // 3. actualiza cache
+            localStorage.setItem(
+                "accounts_" + restaurantId,
+                JSON.stringify(this.accounts)
+            );
+
+        } catch (e) {
+            console.error("Error loading accounts:", e);
+        } finally {
+            this.loading = false;
+        }
+    },
+
+    async refresh(restaurantId) {
+        const data = await accountService.getAccountsByRestaurant(restaurantId);
+
+        this.accounts = data.map(account => ({
             ...account,
             tableNumber: account.table?.tableNumber || null,
             accountName: account.accountName || null,
         }));
-    },
 
-    async refresh(restaurantId) {
-        const accounts = await accountService.getAccountsByRestaurant(restaurantId);
-        this.accounts = accounts;
+        localStorage.setItem("accounts_" + restaurantId, JSON.stringify(this.accounts));
     }
 });

@@ -1,5 +1,6 @@
 <template>
   <div class="products-header">
+    <!-- Searchbar -->
     <input
         class="search-bar"
         type="text"
@@ -8,8 +9,15 @@
         @input="filterAccounts"
         @focus="onSearchFocus"
     />
-    <ul v-if="filteredAccounts.length && searchQuery" class="dropdown">
-      <li v-for="account in filteredAccounts" :key="account.id" class="account-card" @click="$emit('view-account')">
+
+    <!-- Dropdown con resultados -->
+    <ul v-if="searchQuery && filteredAccounts?.length" class="dropdown">
+      <li
+          v-for="account in filteredAccounts"
+          :key="account.id"
+          class="account-card"
+          @click="$emit('view-account', account)"
+      >
         <div class="card-content">
           <span class="account-name">{{ account.accountName }}</span>
           <span class="account-client">{{ account.client }}</span>
@@ -17,6 +25,8 @@
         <span class="total-account">S/.{{ account.totalAccount }}</span>
       </li>
     </ul>
+
+    <!-- No matches -->
     <ul v-else-if="filteredAccounts === -1 && searchQuery" class="dropdown">
       <li class="account-card">
         <div class="card-content">
@@ -24,65 +34,110 @@
         </div>
       </li>
     </ul>
-    <button :class="{ 'active-button': activeMode === 'tables' }" @click="toggleTablesMode">Tables</button>
-    <button :class="{ 'active-button': activeMode === 'accounts' }" @click="toggleAccountsMode">Accounts</button>
+
+    <!-- Buttons -->
+    <button
+        :class="{ 'active-button': isTablesView }"
+        @click="goToTables"
+    >
+      Tables
+    </button>
+
+    <button
+        :class="{ 'active-button': isAccountsView }"
+        @click="goToAccounts"
+    >
+      Accounts
+    </button>
   </div>
 </template>
 
 <script>
 export default {
   props: {
-    restaurantName: {
-      type: String,
-      required: true,
-    },
-    userRole: {
-      type: String,
-      required: true,
-    },
-    accounts: {
-      type: Array,
-      default: () => []
-    }
+    restaurantName: { type: String, required: true },
+    userRole: { type: String, required: true },
+    accounts: { type: Array, default: () => [] }
   },
+
   data() {
     return {
       searchQuery: '',
-      filteredAccounts: [],
-      activeMode: 'accounts',
+      filteredAccounts: null,
     };
   },
-  beforeUnmount() {
-    document.removeEventListener('click', this.handleClickOutside);
+
+  computed: {
+    // Detecta la ruta ACTUAL y activa el botón correcto
+    isTablesView() {
+      return this.$route.path.includes("/tables");
+    },
+    isAccountsView() {
+      return this.$route.path.includes("/saved-accounts");
+    }
   },
+
+  watch: {
+    // Cuando las cuentas se cargan asíncronamente → refresca filtro
+    accounts: {
+      deep: true,
+      handler() {
+        if (this.searchQuery) {
+          this.filterAccounts();
+        }
+      }
+    }
+  },
+
+  mounted() {
+    document.addEventListener("click", this.handleClickOutside);
+  },
+
+  beforeUnmount() {
+    document.removeEventListener("click", this.handleClickOutside);
+  },
+
   methods: {
     filterAccounts() {
-      if (!Array.isArray(this.accounts)) return;
-      const query = this.searchQuery.toLowerCase();
+      if (!Array.isArray(this.accounts) || !this.accounts.length) {
+        this.filteredAccounts = [];
+        return;
+      }
+
+      const q = this.searchQuery.toLowerCase();
+
       const results = this.accounts.filter(a =>
-          a.accountName?.toLowerCase().includes(query)
+          a.accountName?.toLowerCase().includes(q)
       );
 
       this.filteredAccounts = results.length ? results : -1;
     },
-    handleClickOutside(e) {
-      if (!this.$el.contains(e.target)) {
-        this.filteredAccounts = null;
-      }
-    },
+
     onSearchFocus() {
       if (this.searchQuery) {
         this.filterAccounts();
       }
     },
-    async toggleTablesMode() {
-      await this.$router.push(`/${this.restaurantName}/${this.userRole}/tables`)
+
+    handleClickOutside(e) {
+      if (!this.$el.contains(e.target)) {
+        this.filteredAccounts = null;
+      }
     },
-    async toggleAccountsMode() {
-      await this.$router.push(`/${this.restaurantName}/${this.userRole}/saved-accounts`);
+
+    async goToTables() {
+      if (!this.isTablesView) {
+        await this.$router.push(`/${this.restaurantName}/${this.userRole}/tables`);
+      }
     },
+
+    async goToAccounts() {
+      if (!this.isAccountsView) {
+        await this.$router.push(`/${this.restaurantName}/${this.userRole}/saved-accounts`);
+      }
+    }
   }
-}
+};
 </script>
 
 <style scoped>

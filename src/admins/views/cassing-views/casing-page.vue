@@ -21,7 +21,7 @@
               :restaurant-name="restaurantName"
               :selected-slot="selectedSlot"
               :cart="cart"
-              @toggle-edit-mode="toggleEditMode"
+              @refresh-products="refreshProducts"
               @add-to-slot="addToSlot"
               @add-to-cart="addProductToCart"
           />
@@ -120,6 +120,19 @@ export default {
 
     toggleEditMode() {
       this.isEditMode = !this.isEditMode;
+    },
+
+    refreshProducts() {
+      const restaurantId = this.restaurantId;
+      localStorage.removeItem("products_" + restaurantId)
+
+      productsStore.loadProducts(restaurantId).then(() => {
+        this.favoriteProducts = [...productsStore.products];
+        console.log("Productos recargados:", this.favoriteProducts);
+        window.location.reload();
+      }).catch((error) => {
+        console.error("Error al recargar los productos:", error);
+      });
     },
 
     openProductList(index) {

@@ -3,9 +3,16 @@
     <sidebar-component :restaurant-name="restaurantName" :role="userRole" class="sidebar" />
     <div class="main-content">
       <header-component :restaurant-name="restaurantName" :role="userRole" class="header" />
+
       <div class="page-container">
-        <main class="products-page">
+
+        <div v-if="loading" class="loader-overlay">
+          <div class="loader"></div>
+        </div>
+
+        <div v-else class="products-page">
           <div class="content-wrapper">
+
             <div class="products-header">
               <input
                   class="search-bar"
@@ -16,13 +23,15 @@
               />
               <button class="add-button" @click="addProduct">Add Product</button>
             </div>
+
             <div class="product-cards">
-              <template v-if="products.length === 0">
+              <template v-if="filteredProducts.length === 0">
                 <div class="no-products">
-                  <label>You don't have register any account yet.</label>
+                  <label>You don't have registered any product yet.</label>
                 </div>
               </template>
-              <template v-else-if="products.length !== 0">
+
+              <template v-else>
                 <ProductCardComponent
                     v-for="product in filteredProducts"
                     :key="product.id"
@@ -32,8 +41,10 @@
                 />
               </template>
             </div>
+
           </div>
-        </main>
+        </div>
+
       </div>
     </div>
   </div>
@@ -43,8 +54,10 @@
 import HeaderComponent from "@/admins/components/header-component.vue";
 import SidebarComponent from "@/admins/components/sidebar-component.vue";
 import ProductCardComponent from "@/admins/views/products-views/components/product-card-component.vue";
-import { productsService } from "@/public/services/productsService";
+
 import userService from "@/public/services/userService";
+import { productsStore } from "@/public/stores/productsStore";
+import { productsService } from "@/public/services/productsService";
 
 export default {
   components: {
@@ -52,90 +65,84 @@ export default {
     SidebarComponent,
     ProductCardComponent,
   },
+
   data() {
     return {
-      restaurantName: '',
-      userRole: '',
-      products: [],
-      searchQuery: '',
+      restaurantName: "",
+      userRole: "",
+      restaurantId: null,
+      searchQuery: "",
       filteredProducts: [],
+      loading: true,
     };
   },
-  beforeMount() {
-    this.fetchUserData();
 
-    const userData = JSON.parse(localStorage.getItem('userData'));
-    if (userData) {
-      this.restaurantName = userData['business-name'];
-      this.userRole = userData.role;
-      this.restaurantId = localStorage.getItem('restaurantId'); // Obtener el ID del restaurante de localStorage
-    }
-    this.loadProducts();
+  async created() {
+    await this.initializePage();
   },
 
   methods: {
-    async fetchUserData() {
+    async initializePage() {
       try {
         const userData = JSON.parse(localStorage.getItem("userData"));
-        const restaurantId = userData?.restaurantId;
+        if (!userData) return;
 
-        if (restaurantId) {
-          const restaurantData = await userService.getRestaurantById(restaurantId);
-          this.restaurantName = restaurantData.name;
-          this.userRole = userData.role;
-        }
-      } catch (error) {
-        console.error("Error fetching restaurant data: ", error);
+        this.userRole = userData.role;
+        this.restaurantId = userData.restaurantId;
+
+        // obtiene el nombre del restaurante
+        const restaurant = await userService.getRestaurantById(this.restaurantId);
+        this.restaurantName = restaurant.name;
+
+        // ----- ✅ aquí usamos el store -----
+        await productsStore.loadProducts(this.restaurantId);
+
+        // asignación reactiva desde el store
+        this.filteredProducts = productsStore.products;
+
+      } catch (err) {
+        console.error("Error initializing page:", err);
+      } finally {
+        this.loading = false;
       }
     },
 
-    async loadProducts() {
-      const userData = JSON.parse(localStorage.getItem("userData"));
-      const restaurantId = userData.restaurantId;
-
-      try {
-        const products = await productsService.getProductsByRestaurant(restaurantId);
-        this.products = products;
-        this.filteredProducts = this.products;
-      } catch (error) {
-        console.error("Failed to load products", error);
-      }
-    },
     filterProducts() {
-      try{
-        const query = this.searchQuery.toLowerCase(); // Convierte la consulta a minúsculas
-        this.filteredProducts = this.products.filter((product) =>
-            product.productName.toLowerCase().includes(query) // Asegúrate de usar el nombre correcto
-        );
-      } catch (error){
-        console.log("There are not products to show")
-      }
-
+      const q = this.searchQuery.toLowerCase();
+      this.filteredProducts = productsStore.products.filter((p) =>
+          p.productName.toLowerCase().includes(q)
+      );
     },
+
     addProduct() {
       this.$router.push(`/${this.restaurantName}/${this.userRole}/new-product`);
     },
+
     editProduct(product) {
-      this.$router.push(`/${this.restaurantName}/${this.userRole}/product/${product.id}`);
+      this.$router.push(
+          `/${this.restaurantName}/${this.userRole}/product/${product.id}`
+      );
     },
+
     async deleteProduct(productId) {
-      if (confirm("Are you sure you want to remove this product?")) {
-        try {
-          const response = await productsService.deleteProduct(productId);
-          console.log(response)
-          alert(response.message || "Product deleted successfully");
-          // Vuelve a cargar los productos después de la eliminación
-          await this.loadProducts();
-        } catch (error) {
-          console.error('Error during product deletion process:', error);
-        }
-      } else {
-        alert("Deletion canceled.");
+      if (!confirm("Are you sure you want to remove this product?")) return;
+
+      try {
+        const res = await productsService.deleteProduct(productId);
+        alert(res.message || "Product deleted successfully");
+
+        // refresca el store
+        await productsStore.loadProducts(this.restaurantId);
+        this.filteredProducts = productsStore.products;
+
+      } catch (error) {
+        console.error("Error deleting product:", error);
       }
     },
-  }
-}
+  },
+};
 </script>
+
 
 <style scoped>
 /* Estilos que adaptan la vista a la region especifica de la pantalla */
@@ -195,5 +202,33 @@ export default {
   width: 100%;
   max-width: 1000px;
   margin: 20px auto;
+}
+
+.loader {
+  border: 6px solid #ddd;
+  border-top: 6px solid #31304A;
+  border-radius: 50%;
+  width: 55px;
+  height: 55px;
+  animation: spin 0.9s linear infinite;
+}
+
+.loader-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: rgba(255,255,255,0.7);
+  backdrop-filter: blur(2px);
+  z-index: 20;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 </style>

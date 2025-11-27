@@ -1,5 +1,5 @@
-import {reactive} from "vue";
-import {productsService} from "@/public/services/productsService";
+import { reactive } from "vue";
+import { productsService } from "@/public/services/productsService";
 
 export const productsStore = reactive({
     products: [],
@@ -9,23 +9,30 @@ export const productsStore = reactive({
     async loadProducts(restaurantId) {
         if (!restaurantId) return;
 
-        // Evita recargar si ya se cargaron los productos para el mismo restaurante
+        // evita recargar si ya existe cache y mismo ID
         if (this.products.length && this.lastRestaurantId === restaurantId) {
-            return
+            return;
         }
 
         this.loading = true;
         this.lastRestaurantId = restaurantId;
 
         try {
-            const data = await productsService.getProductsByRestaurant(restaurantId);
-            this.products = data;
-            if (localStorage.getItem("products_" + restaurantId)) {
-                this.products = JSON.parse(localStorage.getItem("products_" + restaurantId));
+            // 1. carga instantánea si existe cache local
+            const cached = localStorage.getItem("products_" + restaurantId);
+            if (cached) {
+                this.products = JSON.parse(cached);
             }
+
+            // 2. llamada a la nube
+            const data = await productsService.getProductsByRestaurant(restaurantId);
+
+            // 3. actualiza store y cache
+            this.products = data;
             localStorage.setItem("products_" + restaurantId, JSON.stringify(data));
+
         } catch (error) {
-            console.error("Error loading products: ", error);
+            console.error("Error loading products:", error);
         } finally {
             this.loading = false;
         }

@@ -30,16 +30,15 @@
               <label for="imageUrl">Product Image URL</label>
               <input type="text" v-model="product.productImageUrl" />
             </div>
-
+            <!--
             <div class="supplies-header">
               <div class="supply">
                 <p class="title">Supplies:</p>
               </div>
-                <!-- Campo para añadir nuevo supply -->
+
               <button type="button" @click="addSupply">Add Supply</button>
             </div>
 
-            <!-- Modal con superposición -->
             <div v-if="showSupplySelector" class="modal-overlay">
               <div class="supply-selector-modal">
                 <h3>Select a Supply</h3>
@@ -56,10 +55,10 @@
                 <button @click="showSupplySelector = false">Close</button>
               </div>
             </div>
-
-
+           -->
+            <!--
             <div class="form-field">
-              <!-- Lista de supplies -->
+
               <div class="supply-table-container">
                 <template v-if="product.supplies.length === 0">
                   <div class="no-supplies">
@@ -96,6 +95,7 @@
                 </template>
               </div>
             </div>
+           -->
 
             <button type="submit">{{ isEdit ? 'Save Changes' : 'Add Product' }}</button>
           </form>
@@ -259,6 +259,7 @@ export default {
     },
 
     async submitProduct() {
+      const restaurantId = this.product.restaurantId;
       this.product.productPrice = parseFloat(this.product.productPrice);
       this.product.restaurantId = Number(this.product.restaurantId);
 
@@ -279,6 +280,8 @@ export default {
         } else {
           console.error(`${this.isEdit ? 'Update' : 'Creation'} response error:`, response);
         }
+
+        localStorage.removeItem("products_" + restaurantId)
 
         this.$router.push(`/${this.restaurantName}/${this.userRole}/products`);
 

@@ -16,6 +16,7 @@ export default {
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@700&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Red+Hat+Display:ital,wght@0,300..900;1,300..900&display=swap');
+@import "primeicons/primeicons.css";
 
 template{
   background-color: #F6F5FA;

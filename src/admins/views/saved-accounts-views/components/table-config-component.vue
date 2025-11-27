@@ -2,9 +2,10 @@
   <div class="modal" v-if="isVisible">
     <div class="modal-content">
       <div class="modal-header">
-        <p class="title">{{isEdit ? 'Edit Table' : 'Add New Table'}}</p>
-        <button class="close" @click="closeModal()">x</button>
+        <p class="title">{{ isEdit ? 'Edit Table' : 'Add New Table' }}</p>
+        <button class="close" @click="closeModal">x</button>
       </div>
+
       <form @submit.prevent="submitTable">
         <div class="form-inputs">
           <div class="form-group table-number">
@@ -16,8 +17,9 @@
                 required
             />
           </div>
+
           <div class="form-group table-capacity">
-            <label for="tableCapacity">Table Capacity</label>/
+            <label for="tableCapacity">Table Capacity</label>
             <input
                 type="number"
                 id="tableCapacity"
@@ -26,66 +28,61 @@
             />
           </div>
         </div>
-        <button type="submit" class="save-button">{{ isEdit ? 'Save Changes' : 'Add Table' }}</button>
+
+        <button type="submit" class="save-button">
+          {{ isEdit ? 'Save Changes' : 'Add Table' }}
+        </button>
       </form>
     </div>
   </div>
 </template>
 
 <script>
-import userService from "@/public/services/userService";
-
 export default {
-  props:{
-    isVisible:Boolean,
+  props: {
+    isVisible: Boolean,
+    editingTable: {
+      type: Object,
+      default: null,
+    },
   },
+
   data() {
     return {
-      restaurantName: '',
-      userRole: '',
       table: {
-        tableNumber: null,
-        tableCapacity: null,
-        tableGuests: null,
-        tableStatus: null,
-        restaurantId: null, // Agrega el restaurantId aquí
+        tableNumber: "",
+        tableCapacity: 0,
       },
       isEdit: false,
     };
   },
 
-  methods: {
-    async fetchUserData() {
-      try {
-        const userData = JSON.parse(localStorage.getItem("userData"));
-        const restaurantId = userData?.restaurantId;
-
-        if (restaurantId) {
-          const restaurantData = await userService.getRestaurantById(restaurantId);
-          this.restaurantName = restaurantData.name;
-          this.userRole = userData.role;
+  watch: {
+    editingTable: {
+      immediate: true,
+      handler(value) {
+        if (value) {
+          this.isEdit = true;
+          this.table = { ...value };
+        } else {
+          this.isEdit = false;
+          this.table = { tableNumber: "", tableCapacity: 0 };
         }
-      } catch (error) {
-        console.error("Error fetching restaurant data: ", error);
-      }
+      },
     },
-    async submitTable() {
-      if (this.table.tableNumber && this.table.tableCapacity) {
-        this.$emit("save-table", {
-          tableNumber: this.table.tableNumber,
-          tableCapacity: this.table.tableCapacity,
-        });
-      } else {
-        console.log("Error submitTable: tableNumber or tableCapacity is missing");
-      }
+  },
+
+  methods: {
+    submitTable() {
+      if (!this.table.tableNumber || !this.table.tableCapacity) return;
+      this.$emit("save-table", { ...this.table, id: this.editingTable?.id });
     },
-    closeModal(){
-      this.tableNumber = null;
-      this.tableCapacity = null;
+
+    closeModal() {
       this.$emit("close-modal");
-    }
-  }
-}
+    },
+  },
+};
 </script>
 
 <style scoped>

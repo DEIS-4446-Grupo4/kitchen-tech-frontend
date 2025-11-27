@@ -24,8 +24,8 @@
       </li>
     </ul>
 
-    <button class="edit-button" @click="$emit('toggle-edit-mode')">
-      {{ isEditMode ? "Guardar" : "Editar" }}
+    <button class="edit-button" @click="$emit('refresh-products')">
+      <i class="icon pi pi-sync" style="font-size: 1rem"/>
     </button>
   </div>
 </template>
@@ -175,5 +175,8 @@ export default {
   cursor: pointer;
   font-weight: 800;
   flex-shrink: 0;
+}
+.icon {
+  color: #31304A;
 }
 </style>

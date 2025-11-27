@@ -1,50 +1,75 @@
 <template>
   <div class="layout">
-    <sidebar-component :restaurant-name="restaurantName" :role="userRole" class="sidebar" />
+    <sidebar-component
+        :restaurant-name="restaurantName"
+        :role="userRole"
+        class="sidebar"
+    />
+
     <div class="main-content">
-      <header-component :restaurant-name="restaurantName" :role="userRole" class="header" />
+      <header-component
+          :restaurant-name="restaurantName"
+          :role="userRole"
+          class="header"
+      />
+
       <div class="page-container">
         <searchbar-component
             v-if="restaurantName"
             :restaurant-name="restaurantName"
             :user-role="userRole"
         />
+
+        <!-- Modal -->
         <TableConfigComponent
             :is-visible="showModal"
-            @save-table="addTable"
+            :editing-table="tableBeingEdited"
+            @save-table="saveTable"
             @close-modal="closeModal"
         />
+
         <div class="tables-container">
           <div class="left-section">
-            <template v-if="tables.length === 0">
+            <template v-if="tablesStore.tables.length === 0 && !tablesStore.loading">
               <div class="no-accounts">
-                <label>You don't have created any table yet.</label>
+                <label>No tables created yet.</label>
               </div>
             </template>
-            <template v-else-if="tables.length !== 0">
+
+            <template v-else>
               <TablesComponent
-                  v-for="table in tables"
+                  v-for="table in tablesStore.tables"
                   :key="table.id"
                   :table="table"
-                  @select-table="loadTableProducts"
+                  @select-table="selectTable"
                   @delete-table="deleteTable"
               />
             </template>
-          </div>
-          <div class="right-section">
-            <button class="button" @click="showModal = true ">Add Table</button>
-            <button class="button">Edit Table</button>
-            <div class="bullets">
-              <div class="bullet green" aria-label="Table status">
-                <p class="description-bullet">Free</p>
-              </div>
-              <div class="bullet red" aria-label="Table status">
-                <p class="description-bullet">Occupied</p>
-              </div>
-              <div class="bullet yellow" aria-label="Table status">
-                <p class="description-bullet">To Clean</p>
-              </div>
+
+            <div v-if="tablesStore.loading" class="loading-msg">
+              Loading tables...
             </div>
+          </div>
+
+          <div class="right-section">
+            <button class="button" @click="openAddTable">Add Table</button>
+            <button
+                class="button"
+                :disabled="!selectedTable"
+                @click="openEditTable"
+            >
+              Edit Table
+            </button>
+
+            <div class="bullets">
+              <div class="bullet green"><p class="description-bullet">Free</p></div>
+              <div class="bullet red"><p class="description-bullet">Occupied</p></div>
+              <div class="bullet yellow"><p class="description-bullet">To Clean</p></div>
+            </div>
+
+            <button class="button reload" @click="reloadTables">
+              Reload
+            </button>
           </div>
         </div>
       </div>
@@ -55,108 +80,113 @@
 <script>
 import HeaderComponent from "@/admins/components/header-component.vue";
 import SidebarComponent from "@/admins/components/sidebar-component.vue";
-import userService from "@/public/services/userService";
 import SearchbarComponent from "@/admins/views/saved-accounts-views/components/searchbar-component.vue";
 import TablesComponent from "@/admins/views/saved-accounts-views/components/tables-component.vue";
 import TableConfigComponent from "@/admins/views/saved-accounts-views/components/table-config-component.vue";
-import {tablesService} from "@/public/services/tablesService";
+import { tablesStore } from "@/public/stores/tablesStore";
+import userService from "@/public/services/userService";
+import { tablesService } from "@/public/services/tablesService";
 
 export default {
   components: {
-    TablesComponent,
-    SearchbarComponent,
     HeaderComponent,
     SidebarComponent,
-    TableConfigComponent
+    SearchbarComponent,
+    TablesComponent,
+    TableConfigComponent,
   },
+
   data() {
     return {
-      restaurantName: '',
-      userRole: '',
-      tables: [],
+      restaurantName: "",
+      userRole: "",
+      restaurantId: null,
+
       showModal: false,
+      selectedTable: null,
+      tableBeingEdited: null,
     };
   },
-  beforeMount() {
-    this.fetchUserData();
 
-    const userData = JSON.parse(localStorage.getItem('userData'));
-    if (userData) {
-      this.restaurantName = userData['business-name'];
-      this.userRole = userData.role;
-      this.restaurantId = localStorage.getItem('restaurantId'); // Obtener el ID del restaurante de localStorage
-    }
-
-    this.loadTables();
+  async mounted() {
+    await this.fetchUserData();
+    await tablesStore.loadTables(this.restaurantId);
   },
+
   methods: {
     async fetchUserData() {
-      try {
-        const userData = JSON.parse(localStorage.getItem("userData"));
-        const restaurantId = userData?.restaurantId;
+      const userData = JSON.parse(localStorage.getItem("userData"));
+      if (!userData) return;
 
-        if (restaurantId) {
-          const restaurantData = await userService.getRestaurantById(restaurantId);
-          this.restaurantName = restaurantData.name;
-          this.userRole = userData.role;
-        }
-      } catch (error) {
-        console.error("Error fetching restaurant data: ", error);
-      }
-    },
-    async loadTables() {
-      const userData = JSON.parse(localStorage.getItem('userData'));
-      const restaurantId = userData.restaurantId;
+      const restaurantData = await userService.getRestaurantById(userData.restaurantId);
 
-      try {
-        const tables = await tablesService.getTablesByRestaurant(restaurantId);
-        this.tables = tables;
-        console.log(tables)
-      } catch (error) {
-        console.error("Failed to load tables");
-      }
+      this.restaurantName = restaurantData.name;
+      this.userRole = userData.role;
+      this.restaurantId = userData.restaurantId;
     },
-    async deleteTable(tableId) {
-      if(confirm("Are you sure you want to delete this table?")) {
-        try {
-          const response = await tablesService.deleteTable(tableId);
-          console.log(response)
-          await this.loadTables();
-        } catch (error){
-          console.error('Error during table deletion process:', error);
-        }
+
+    async reloadTables() {
+      tablesStore.invalidateCache(this.restaurantId);
+      await tablesStore.loadTables(this.restaurantId, true);
+    },
+
+    async deleteTable(id) {
+      if (!confirm("Are you sure you want to delete this table?")) return;
+
+      await tablesService.deleteTable(id);
+
+      tablesStore.invalidateCache(this.restaurantId);
+      await tablesStore.loadTables(this.restaurantId, true);
+
+      this.selectedTable = null;
+    },
+
+    openAddTable() {
+      this.tableBeingEdited = null;
+      this.showModal = true;
+    },
+
+    openEditTable() {
+      if (!this.selectedTable) return;
+
+      this.tableBeingEdited = { ...this.selectedTable };
+      this.showModal = true;
+    },
+
+    async saveTable(tableData) {
+      if (tableData.id) {
+        await tablesService.updateTable(tableData.id, tableData);
       } else {
-        console.log("Deletion canceled.");
-      }
-    },
-    async addTable(tableData) {
-      try {
-        const userData = JSON.parse(localStorage.getItem("userData"));
-        const restaurantId = userData?.restaurantId;
-
-        const table = {
-          tableNumber: tableData.tableNumber,
-          tableCapacity: tableData.tableCapacity,
+        await tablesService.addTable({
+          ...tableData,
+          restaurantId: this.restaurantId,
           tableGuests: 0,
-          tableStatus: 0,
-          restaurantId: restaurantId,
-        };
-        const response = await tablesService.addTable(table);
-        if (response) {
-          this.closeModal();
-          await this.loadTables();
-        } else {
-          console.error("Failed to add table");
-        }
-      }catch (error) {
-        console.error("Failed to add table", error);
+          tableStatus: "Free",
+        });
       }
+
+      tablesStore.invalidateCache(this.restaurantId);
+      await tablesStore.loadTables(this.restaurantId, true);
+
+      this.closeModal();
     },
-    closeModal(){
+
+    selectTable(tableId) {
+      this.selectedTable = tablesStore.tables.find(t => t.id === tableId);
+    },
+
+    closeModal() {
       this.showModal = false;
+      this.tableBeingEdited = null;
     },
-  }
-}
+  },
+
+  computed: {
+    tablesStore() {
+      return tablesStore;
+    },
+  },
+};
 </script>
 
 <style scoped>

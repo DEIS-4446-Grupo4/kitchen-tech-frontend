@@ -2,17 +2,20 @@
   <div class="table-card" @click="selectTable">
     <div class="card-header">
       <p class="table-number">Table {{ table.tableNumber }}</p>
-      <div class="status-bullet" :class="statusClass" aria-label="Table status"></div>
+
+      <div class="status-bullet" :class="statusClass"></div>
+
       <img
           :src="require('/public/assets/images/delete.png')"
           class="delete-button"
-          @click="$emit('delete-table', table.id)"
+          @click.stop="$emit('delete-table', table.id)"
           alt="delete"
       />
     </div>
+
     <div class="card-body">
-      <p class="table-stats">Table capacity: {{ table.tableCapacity }}</p>
-      <p class="table-stats">Table guests: {{ table.tableGuests }}</p>
+      <p class="table-stats">Capacity: {{ table.tableCapacity }}</p>
+      <p class="table-stats">Guests: {{ table.tableGuests ?? 0 }}</p>
     </div>
   </div>
 </template>
@@ -20,30 +23,29 @@
 <script>
 export default {
   props: {
-    table: {
-      type: Object,
-      required: true,
-    },
+    table: Object,
   },
+
   computed: {
     statusClass() {
-      // Asegurarse de que se manejen solo los estados válidos
-      if (this.table.tableStatus === 'Free') {
-        return 'status-green';
-      } else if (this.table.tableStatus === 'Occupied') {
-        return 'status-red';
-      } else if (this.table.tableStatus === 'ToClean') {
-        return 'status-yellow';
-      } else {
-        return ''; // Clase vacía si el estado es desconocido
+      switch (this.table.tableStatus) {
+        case "Free":
+          return "status-green";
+        case "Occupied":
+          return "status-red";
+        case "ToClean":
+          return "status-yellow";
+        default:
+          return "";
       }
     },
   },
+
   methods: {
     selectTable() {
-      this.$emit('select-table', this.table.id);
-    }
-  }
+      this.$emit("select-table", this.table);
+    },
+  },
 };
 </script>
 
