@@ -7,11 +7,6 @@
         <div v-if="loading" class="loader-overlay">
           <div class="loader"></div>
         </div>
-        <searchbar-component
-            :restaurant-name="restaurantName"
-            :user-role="userRole"
-            :accounts="accounts"
-        />
         <div class="account-cards">
           <template v-if="accounts.length === 0">
             <div class="no-accounts">
@@ -39,48 +34,49 @@
 <script>
 import HeaderComponent from "@/admins/components/header-component.vue";
 import SidebarComponent from "@/admins/components/sidebar-component.vue";
-import userService from "@/public/services/userService";
-import SearchbarComponent from "@/admins/views/saved-accounts-views/components/searchbar-component.vue";
 import AccountCardComponent from "@/admins/views/saved-accounts-views/components/account-card-component.vue";
-import {accountService} from "@/public/services/accountsService";
-import {tablesService} from "@/public/services/tablesService";
-import {accountsStore} from "@/public/stores/accountStore";
+
+import userService from "@/public/services/userService";
+import { accountService } from "@/public/services/accountsService";
+import { tablesService } from "@/public/services/tablesService";
+import { accountsStore } from "@/public/stores/accountStore";
 
 export default {
   components: {
     AccountCardComponent,
-    SearchbarComponent,
     HeaderComponent,
     SidebarComponent,
   },
+
   data() {
     return {
-      restaurantName: '',
-      userRole: '',
+      restaurantName: "",
+      userRole: "",
+      restaurantId: null,
       accounts: [],
       loading: true,
     };
   },
+
   async created() {
     await this.initializePage();
   },
+
   methods: {
     async initializePage() {
       try {
         const userData = JSON.parse(localStorage.getItem("userData"));
-
         if (!userData) return;
 
-        // Datos directos de localStorage (instantáneo)
-        this.userRole = userData.role;
         this.restaurantId = userData.restaurantId;
+        this.userRole = userData.role;
 
-        // Obtener datos completos del restaurante (una sola vez)
         const restaurant = await userService.getRestaurantById(this.restaurantId);
         this.restaurantName = restaurant.name;
 
         await accountsStore.loadAccounts(this.restaurantId);
         this.accounts = accountsStore.accounts;
+
       } catch (err) {
         console.error("Error initializing page:", err);
       } finally {
@@ -90,49 +86,46 @@ export default {
 
     async deleteAccount(accountId) {
       if (!confirm("Are you sure you want to remove this account?")) return;
+
       try {
         const account = await accountService.getAccountById(accountId);
-        const tableId = account.table.id;
 
         await accountService.deleteAccount(accountId);
 
-        const table = await tablesService.getTableById(tableId);
+        const table = await tablesService.getTableById(account.table.id);
         table.tableStatus = 0;
         await tablesService.updateTable(table);
 
-        // refresca store en 1 sola llamada
         await accountsStore.refresh(this.restaurantId);
-
         this.accounts = accountsStore.accounts;
-      } catch (e) {
-        console.error(e);
+
+      } catch (err) {
+        console.error(err);
       }
     },
+
     async loadAccountProducts(accountId) {
       try {
         const accountData = await accountService.getAccountById(accountId);
-        console.log("Esta es la informacion de la cuenta:",accountData);
-        const accountProducts = accountData.products;
 
-        this.cart = accountProducts.map(p => ({
+        const cart = accountData.products.map(p => ({
           id: p.productId,
           productName: p.productName,
           price: p.price,
-          quantity: p.quantity,
-          showInputs: false
+          quantity: p.quantity
         }));
-        localStorage.setItem('accountData', JSON.stringify(accountData))
-        localStorage.setItem('cartData', JSON.stringify(this.cart))
 
-        this.$router.push(`/${this.restaurantName}/${this.userRole}/casing`)
+        localStorage.setItem("accountData", JSON.stringify(accountData));
+        localStorage.setItem("cartData", JSON.stringify(cart));
+
+        this.$router.push(`/${this.restaurantName}/${this.userRole}/casing`);
 
       } catch (error) {
-        console.error("Error loading products from the account:", error);
+        console.error("Error loading products:", error);
       }
-    },
-
+    }
   }
-}
+};
 </script>
 
 <style scoped>

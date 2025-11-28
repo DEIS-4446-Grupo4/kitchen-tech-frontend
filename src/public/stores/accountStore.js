@@ -9,8 +9,13 @@ export const accountsStore = reactive({
     async loadAccounts(restaurantId) {
         if (!restaurantId) return;
 
-        // si ya existe cache en memoria y es del mismo restaurant
-        if (this.accounts.length && this.lastRestaurantId === restaurantId) {
+        const dirty = localStorage.getItem("accounts_dirty") === "1";
+
+        // Usa cache si existe y no está dirty
+        const cached = localStorage.getItem("accounts_" + restaurantId);
+
+        if (cached && !dirty && this.lastRestaurantId === restaurantId) {
+            this.accounts = JSON.parse(cached);
             return;
         }
 
@@ -18,43 +23,31 @@ export const accountsStore = reactive({
         this.lastRestaurantId = restaurantId;
 
         try {
-            // 1. carga instantánea desde localStorage
-            const cached = localStorage.getItem("accounts_" + restaurantId);
-            if (cached) {
-                this.accounts = JSON.parse(cached);
-            }
-
-            // 2. pide data nueva a la nube
             const data = await accountService.getAccountsByRestaurant(restaurantId);
 
-            this.accounts = data.map(account => ({
-                ...account,
-                tableNumber: account.table?.tableNumber || null,
-                accountName: account.accountName || null,
-            }));
+            this.accounts = data
+                .map(acc => ({
+                    ...acc,
+                    tableNumber: acc.table?.tableNumber || null,
+                }))
+                .sort((a, b) => (a.id < b.id ? 1 : -1));
 
-            // 3. actualiza cache
             localStorage.setItem(
                 "accounts_" + restaurantId,
                 JSON.stringify(this.accounts)
             );
 
-        } catch (e) {
-            console.error("Error loading accounts:", e);
+            localStorage.removeItem("accounts_dirty");
+
+        } catch (err) {
+            console.error("Error loading accounts:", err);
         } finally {
             this.loading = false;
         }
     },
 
     async refresh(restaurantId) {
-        const data = await accountService.getAccountsByRestaurant(restaurantId);
-
-        this.accounts = data.map(account => ({
-            ...account,
-            tableNumber: account.table?.tableNumber || null,
-            accountName: account.accountName || null,
-        }));
-
-        localStorage.setItem("accounts_" + restaurantId, JSON.stringify(this.accounts));
+        localStorage.setItem("accounts_dirty", "1");
+        await this.loadAccounts(restaurantId);
     }
 });

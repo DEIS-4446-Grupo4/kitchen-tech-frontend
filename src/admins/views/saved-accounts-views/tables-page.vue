@@ -14,11 +14,6 @@
       />
 
       <div class="page-container">
-        <searchbar-component
-            v-if="restaurantName"
-            :restaurant-name="restaurantName"
-            :user-role="userRole"
-        />
 
         <!-- Modal -->
         <TableConfigComponent
@@ -80,7 +75,6 @@
 <script>
 import HeaderComponent from "@/admins/components/header-component.vue";
 import SidebarComponent from "@/admins/components/sidebar-component.vue";
-import SearchbarComponent from "@/admins/views/saved-accounts-views/components/searchbar-component.vue";
 import TablesComponent from "@/admins/views/saved-accounts-views/components/tables-component.vue";
 import TableConfigComponent from "@/admins/views/saved-accounts-views/components/table-config-component.vue";
 import { tablesStore } from "@/public/stores/tablesStore";
@@ -91,7 +85,6 @@ export default {
   components: {
     HeaderComponent,
     SidebarComponent,
-    SearchbarComponent,
     TablesComponent,
     TableConfigComponent,
   },
