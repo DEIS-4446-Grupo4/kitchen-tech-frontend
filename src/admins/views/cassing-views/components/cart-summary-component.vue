@@ -1,8 +1,8 @@
 <template>
   <div class="cart-summary">
-    <button class="add-customer" @click="addCustomer">Add Customer</button>
+    <button class="add-customer" @click="$emit('add-customer')">Add Customer</button>
 
-    <div class="cart-item" v-for="(item, index) in localCart" :key="item.id">
+    <div class="cart-item" v-for="(item, index) in cart" :key="item.id">
       <div class="toggle-input">
         <div class="item-header" @click="toggleItemInputs(index)">
           <div class="item-info">
@@ -10,223 +10,92 @@
             <span class="item-unit">{{ item.quantity }} Un - S/{{ item.price }}</span>
           </div>
         </div>
-        <img
-            :src="require('/public/assets/images/delete.png')"
-            class="delete-button"
-            @click="removeItem(index)"
-            alt="delete"
-        />
+        <img :src="require('/public/assets/images/delete.png')" class="delete-button" @click="removeItem(item.id)" alt="delete" />
       </div>
       <div v-if="item.showInputs" class="item-body">
         <div class="input-group">
           <label>Quantity</label>
-          <input type="number" v-model.number="item.quantity" @input="updateItemTotal(index)" @blur="validateQuantity(index)" />
+          <input type="number" v-model.number="item.quantity" @input="onItemChange(item)" @blur="validateQuantity(item)" />
         </div>
-
         <div class="input-group">
           <label>Unit Price</label>
-          <input type="number" v-model="item.price" @input="updateItemTotal(index)" @blur="validatePrice(index)" />
+          <input type="number" v-model.number="item.price" @input="onItemChange(item)" @blur="validatePrice(item)" />
         </div>
       </div>
     </div>
+
     <div class="footer">
-      <button class="save-sale" @click="showModal = true">Save Sale</button>
+      <button class="save-sale" @click="openSaveModal">Save Sale</button>
       <save-order-component
           :is-visible="showModal"
           :restaurant-id="String(restaurantId)"
-          @save-sale="saveOrder"
+          @save-sale="handleSaveSale"
           @close-modal="closeModal"
       />
       <div class="summary">
-        <span>Subtotal</span>
-        <span>S/{{ localSubtotal.toFixed(2) }}</span>
+        <span>Subtotal</span><span>S/{{ subtotal.toFixed(2) }}</span>
       </div>
       <div class="summary">
-        <span>I.G.V:</span>
-        <span>S/{{ localIgv.toFixed(2) }}</span>
+        <span>I.G.V:</span><span>S/{{ igv.toFixed(2) }}</span>
       </div>
     </div>
+
     <button class="charge-button" @click="charge">
-      <span>Charge</span>
-      <span>S/{{ localTotal.toFixed(2) }}</span>
+      <span>Charge</span><span>S/{{ total.toFixed(2) }}</span>
     </button>
   </div>
 </template>
 
 <script>
 import SaveOrderComponent from "@/admins/views/cassing-views/components/save-order-component.vue";
-import {accountService} from "@/public/services/accountsService";
-import {tablesService} from "@/public/services/tablesService";
+import { cartStore } from "@/public/stores/cartStore";
 
 export default {
-  components: {SaveOrderComponent},
+  components: { SaveOrderComponent },
   props: {
-    cart: {
-      type: Array,
-      default: () => []
-    },
-    subtotal: {
-      type: Number,
-      default: 0
-    },
-    igv: {
-      type: Number,
-      default: 0
-    },
-    total: {
-      type: Number,
-      default: 0
-    },
-    restaurantId: {
-      type: [String],
-      required: true
-    }
-  },
-  created() {
-    this.updateCartSummary();
+    subtotal: Number,
+    igv: Number,
+    total: Number,
+    restaurantId: { type: String, required: true },
   },
   data() {
     return {
-      localCart: this.cart.map(item => ({
-        ...item,
-        showInputs: false
-      })),
-      localSubtotal: this.subtotal,
-      localIgv: this.igv,
-      localTotal: this.total,
-      discountType: 'amount',
+      cartStore,
       showModal: false,
     };
   },
-  methods: {
-    addCustomer() {
-      this.$emit('add-customer');
-    },
-    toggleItemInputs(index) {
-      // Alternar la visibilidad de los inputs
-      this.localCart[index].showInputs = !this.localCart[index].showInputs;
-    },
-    validateQuantity(index) {
-      const item = this.localCart[index];
-      if (item.quantity === 0 || item.quantity === "") {
-        item.quantity = 1;
-      }
-      this.updateItemTotal(index);
-    },
-    validatePrice(index) {
-      const item = this.localCart[index];
-      if (item.price === 0 || item.price === "") {
-        item.price = 1;
-      }
-      this.updateItemTotal(index);
-    },
-    updateItemTotal(index) {
-      const item = this.localCart[index];
-      console.log(this.localCart)
-      const total = item.price * item.quantity;
-      item.total = total > 0 ? total : 0;
-      this.updateCartSummary();
-    },
-    removeItem(index) {
-      this.localCart.splice(index, 1); // Remover el producto del array local
-      this.updateCartSummary();
-      this.$emit('update-cart', this.localCart); // Enviar al padre la actualización del carrito
-    },
-    async saveOrder(accountName, tableNumber) {
-      if (accountName || tableNumber) {
-        try {
-          const tables = await tablesService.getTablesByRestaurant(this.restaurantId);
-          const table = tables.find(t => String(t.tableNumber) === String(tableNumber));
-
-          if (table) {
-            this.tableId = table.id;
-            const accountPayload = {
-              accountName: this.accountName || `Mesa: ${tableNumber}`,
-              table: { id: table.id },
-              restaurantId: this.restaurantId,
-              state: 0,
-              totalAccount: this.localTotal.toFixed(2),
-              products: [],
-            };
-
-            const createdAccount = await accountService.addAccount(accountPayload);
-
-            if (createdAccount && createdAccount.id) {
-              table.tableStatus = 1;
-              await tablesService.updateTable(table);
-
-              for (const item of this.localCart) {
-                const accountProductPayload = {
-                  accountId: createdAccount.id,
-                  productId: item.id,
-                  quantity: item.quantity,
-                };
-                await accountService.addAccountProduct(accountProductPayload);
-              }
-
-              if (this.localCart.length > 0) {
-                this.$emit("account-updated", accountPayload);
-                console.log("Emitiendo update")
-              } else {
-                this.$emit("save-sale", accountPayload);
-                localStorage.removeItem("cartData")
-                console.log("Emitiendo save")
-              }
-
-              this.closeModal();
-              this.$router.push(`/${this.restaurantName}/${this.userRole}/saved-accounts`);
-            }
-          } else {
-            alert("Table not found");
-          }
-        } catch (error) {
-          console.error("Error saving account or updating table status:", error);
-        }
-      } else {
-        alert("Please, complete one input at least");
-      }
-    },
-    closeModal(){
-      this.showModal = false;
-    },
-    updateCartSummary() {
-      const rawTotal = this.localCart.reduce((acc, item) => acc + item.price * item.quantity, 0);
-
-      this.localSubtotal = rawTotal * 0.909;
-      this.localIgv = rawTotal * 0.091;
-      this.localTotal = rawTotal;
-
-      // Emitir los nuevos valores al componente padre
-      this.$emit('update-summary', {
-        subtotal: this.localSubtotal,
-        igv: this.localIgv,
-        total: this.localTotal
-      });
-    },
-    charge() {
-      this.$emit('charge');
-    },
+  computed: {
+    cart() { return cartStore.cart; },
   },
-  watch: {
-    cart: {
-      handler(newCart) {
-        this.localCart = JSON.parse(JSON.stringify(newCart));
-        this.updateCartSummary();
-      },
-      deep: true
+  methods: {
+    toggleItemInputs(index) {
+      const item = this.cart[index];
+      item.showInputs = !item.showInputs;
+      cartStore.persist();
     },
-    subtotal(newSubtotal) {
-      this.localSubtotal = newSubtotal;
+    onItemChange(item) {
+      cartStore.updateItem(item.id, { quantity: item.quantity, price: item.price });
     },
-    igv(newIgv) {
-      this.localIgv = newIgv;
+    removeItem(id) {
+      cartStore.removeProduct(id);
     },
-    total(newTotal) {
-      this.localTotal = newTotal;
+    validateQuantity(item) {
+      if (!item.quantity || item.quantity <= 0) item.quantity = 1;
+      this.onItemChange(item);
+    },
+    validatePrice(item) {
+      if (!item.price || item.price <= 0) item.price = 1;
+      this.onItemChange(item);
+    },
+    openSaveModal() { this.showModal = true; },
+    closeModal() { this.showModal = false; },
+    charge() {
+      this.$emit("charge");
     }
   }
 };
 </script>
+
 
 <style scoped>
 .cart-summary {

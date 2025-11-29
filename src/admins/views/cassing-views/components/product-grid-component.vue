@@ -1,60 +1,48 @@
 <template>
   <div class="products-grid">
     <div
-        v-for="(slot, index) in 30"
+        v-for="(item, index) in normalizedProducts"
         :key="index"
         class="product-slot"
-        :class="{ 'border-dashed': !favoriteProducts[index] }"
-    @click="isEditMode ? selectFavoriteSlot(index) : addFavoriteToCart(index)"
+        :class="{ 'border-dashed': !item }"
     >
-    <FavoriteProductCardComponent
-        v-if="favoriteProducts[index]"
-        :product="favoriteProducts[index]"
-        @product-clicked="addProductToCart"
-        @product-selected="removeProductFromFavorites(index)"
-    />
-    <div v-else class="empty-slot">
-      <button v-if="isEditMode" @click="openProductList(index)">
-        <i>+</i>
-      </button>
+      <FavoriteProductCardComponent
+          v-if="item"
+          :product="item"
+          @click="addProductToCart(item)"
+      />
+
+      <div v-else class="empty-slot"></div>
     </div>
-  </div>
   </div>
 </template>
 
 <script>
-import FavoriteProductCardComponent from "@/admins/views/cassing-views/components/favorite-product-card-component.vue";
+import FavoriteProductCardComponent from "./favorite-product-card-component.vue";
 
 export default {
   props: {
+    products: Array,
     isEditMode: Boolean,
-    favoriteProducts: Array
   },
   components: {
-    FavoriteProductCardComponent
+    FavoriteProductCardComponent,
   },
-  methods: {
-    openProductList(index) {
-      this.$emit('open-product-list', index);
-    },
-    removeProductFromFavorites(index) {
-      this.$emit('remove-product-from-favorites', index);
-    },
-    selectFavoriteSlot(index) {
-      if (!this.favoriteProducts[index]) {
-        this.openProductList(index);
-      }
-    },
-    addProductToCart(product) {
-      this.$emit('add-to-cart', product);
-    },
-    addFavoriteToCart(index) {
-      if (!this.isEditMode && this.favoriteProducts[index]) {
-        this.$emit('add-to-cart', this.favoriteProducts[index]);
-      }
+
+  computed: {
+    normalizedProducts() {
+      const arr = [...this.products];
+      while (arr.length < 30) arr.push(null);
+      return arr;
     }
-  }
-}
+  },
+
+  methods: {
+    addProductToCart(product) {
+      this.$emit("add-to-cart", product);
+    }
+  },
+};
 </script>
 
 <style scoped>

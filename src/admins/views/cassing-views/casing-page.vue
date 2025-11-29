@@ -1,52 +1,36 @@
 <template>
   <div class="layout">
-    <sidebar-component
-        :restaurant-name="restaurantName"
-        :role="userRole"
-        class="sidebar"
-    />
-
+    <sidebar-component :restaurant-name="restaurantName" :role="userRole" class="sidebar" />
     <div class="main-content">
-      <header-component
-          :restaurant-name="restaurantName"
-          :role="userRole"
-          class="header"
-      />
-
+      <header-component :restaurant-name="restaurantName" :role="userRole" class="header" />
       <div class="page-container">
         <div class="left-section">
-          <!-- HEADER DE FAVORITOS + SEARCHBAR -->
           <favorite-product-header
               :is-edit-mode="isEditMode"
               :restaurant-name="restaurantName"
               :selected-slot="selectedSlot"
-              :cart="cart"
+              :cart="cartStore.cart"
               @refresh-products="refreshProducts"
-              @add-to-slot="addToSlot"
-              @add-to-cart="addProductToCart"
+              @add-to-cart="handleAddToCart"
           />
-          <!-- GRID DE PRODUCTOS FAVORITOS -->
           <product-grid-component
-              :favorite-products="favoriteProducts"
+              :products="productSlots"
               :is-edit-mode="isEditMode"
-              @open-product-list="openProductList"
-              @remove-product-from-favorites="removeProductFromFavorites"
-              @add-to-cart="addProductToCart"
+              @add-to-cart="handleAddToCart"
           />
 
         </div>
 
-        <!-- CARRITO A LA DERECHA -->
         <div class="right-section">
           <cart-summary-component
-              :cart="cart"
-              :subtotal="subtotal"
-              :igv="igv"
-              :total="total"
-              :restaurant-id="restaurantId"
+              :cart="cartStore.cart"
+              :subtotal="cartStore.subtotal()"
+              :igv="cartStore.igv()"
+              :total="cartStore.total()"
+              :restaurant-id="String(restaurantId)"
               @charge="charge"
-              @update-cart="handleUpdateCart"
-              @update-summary="handleUpdateSummary"
+              @update-cart="handleCartUpdate"
+              @account-updated="onAccountSaved"
           />
         </div>
       </div>
@@ -59,8 +43,11 @@ import HeaderComponent from "@/admins/components/header-component.vue";
 import SidebarComponent from "@/admins/components/sidebar-component.vue";
 import ProductGridComponent from "@/admins/views/cassing-views/components/product-grid-component.vue";
 import CartSummaryComponent from "@/admins/views/cassing-views/components/cart-summary-component.vue";
-import { productsStore } from "@/public/stores/productsStore";
 import FavoriteProductHeader from "@/admins/views/cassing-views/components/favorite-product-header.vue";
+
+import { productsStore } from "@/public/stores/productsStore";
+import { cartStore } from "@/public/stores/cartStore";
+import { favoritesStore } from "@/public/stores/favoritesStore";
 
 export default {
   components: {
@@ -70,123 +57,70 @@ export default {
     ProductGridComponent,
     CartSummaryComponent,
   },
-
   data() {
     return {
       restaurantName: "",
       userRole: "",
-      cart: [],
-      subtotal: 0,
-      igv: 0,
-      total: 0,
+      restaurantId: null,
 
       isEditMode: false,
       selectedSlot: null,
 
-      favoriteProducts: Array(30).fill(null),
-      restaurantId: null,
+      productsStore,
+      cartStore
     };
   },
 
-  async created() {
-    this.loadCart();
-    await this.loadProducts();
+  computed: {
+    productSlots() {
+      return this.productsStore.products.slice(0, 30);
+    }
   },
 
-  beforeUnmount() {
-    localStorage.removeItem("cartData")
-    localStorage.removeItem("accountData")
+  async created() {
+    this.cartStore.load();
+
+    const userData = JSON.parse(localStorage.getItem("userData")) || {};
+    this.restaurantId = userData.restaurantId;
+
+    await this.productsStore.loadProducts(this.restaurantId);
   },
 
   methods: {
-    loadCart() {
-      this.cart = JSON.parse(localStorage.getItem("cartData")) || [];
-    },
-
-    async loadProducts() {
-      const userData = JSON.parse(localStorage.getItem("userData"));
-      this.restaurantId = userData?.restaurantId;
-      this.restaurantName = userData?.restaurantName;
-      this.userRole = userData?.role;
-
-      if (!this.restaurantId) return;
-
-      if (!productsStore.products.length) {
-        await productsStore.loadProducts(this.restaurantId);
-      }
-
-      this.favoriteProducts = [...productsStore.products];
-    },
-
-    toggleEditMode() {
-      this.isEditMode = !this.isEditMode;
-    },
-
-    refreshProducts() {
-      const restaurantId = this.restaurantId;
-      localStorage.removeItem("products_" + restaurantId)
-
-      productsStore.loadProducts(restaurantId).then(() => {
-        this.favoriteProducts = [...productsStore.products];
-        console.log("Productos recargados:", this.favoriteProducts);
-        window.location.reload();
-      }).catch((error) => {
-        console.error("Error al recargar los productos:", error);
-      });
+    async refreshProducts() {
+      await productsStore.refresh(this.restaurantId);
+      // update favorites if necessary
+      this.favoriteProducts = [...favoritesStore.slots];
     },
 
     openProductList(index) {
       this.selectedSlot = index;
     },
 
-    addToSlot({ product, slot }) {
-      this.favoriteProducts[slot] = product;
+    handleAddToCart(product) {
+      this.cartStore.addProduct(product, 1);
     },
 
-    removeProductFromFavorites(index) {
-      this.favoriteProducts[index] = null;
+    handleCartUpdate(newCart) {
+
+      this.cartStore.cart = newCart;
+      this.cartStore.persist();
     },
 
-    addProductToCart(product) {
-      const existing = this.cart.find(item => item.id === product.id);
-
-      if (existing) {
-        existing.quantity++;
-      } else {
-        this.cart.push({
-          ...product,
-          price: product.productPrice,
-          quantity: 1
-        });
-      }
-
-      this.updateCartSummary();
-    },
-
-    updateCartSummary() {
-      this.subtotal = this.cart.reduce(
-          (acc, item) => acc + item.price * item.quantity,
-          0
-      );
-
-      this.igv = this.subtotal * 0.18;
-      this.total = this.subtotal;
-    },
-
-    handleUpdateCart(updatedCart) {
-      this.cart = updatedCart;
-    },
-
-    handleUpdateSummary({ subtotal, igv, total }) {
-      this.subtotal = subtotal;
-      this.igv = igv;
-      this.total = total;
+    onAccountSaved() {
+      // cuando se crea una nueva cuenta desde el modal, marca accounts_dirty (fuera de scope)
+      // si hace falta refrescar productos (no normalmente) => productsStore.refresh(this.restaurantId)
+      // limpiar cart
+      this.cartStore.clear();
+      // fuerza recálculo UI:
+      this.$forceUpdate();
     },
 
     charge() {
-      console.log("charging...");
-    },
-  },
+      // lógica de cobro
+      console.log("charge");
+    }
+  }
 };
 </script>
 

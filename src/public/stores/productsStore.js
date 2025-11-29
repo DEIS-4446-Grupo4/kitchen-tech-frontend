@@ -22,7 +22,7 @@ export const productsStore = reactive({
                 this.lastRestaurantId = restaurantId;
                 return;
             } catch (error) {
-                console.warn("Invalid products cache, will reload from API", e);
+                console.warn("Invalid products cache, will reload from API", error);
             }
         }
 
