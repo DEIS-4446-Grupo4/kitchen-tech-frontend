@@ -1,32 +1,21 @@
 <template>
   <div class="products-header">
-    <!-- SEARCHBAR -->
     <input
         class="search-bar"
         type="text"
         v-model="searchQuery"
         placeholder="Buscar productos..."
         @focus="showDropdown = true"
-
     />
-    <!-- RESULTADOS -->
     <ul v-if="showDropdown && filteredProducts.length" class="dropdown">
-      <li
-          v-for="p in filteredProducts"
-          :key="p.id"
-          class="product-card"
-      >
+      <li v-for="p in filteredProducts" :key="p.id" class="product-card">
         <div class="card-content">
           <span class="product-name">{{ p.productName }}</span>
           <span class="product-price">S/. {{ p.productPrice }}</span>
         </div>
-        <button @click="addProductToCart(p)" class="add-button">+</button>
+        <button @click.prevent="emitAddToCart(p)" class="add-button">+</button>
       </li>
     </ul>
-
-    <button class="edit-button" @click="$emit('refresh-products')">
-      <i class="icon pi pi-sync" style="font-size: 1rem"/>
-    </button>
   </div>
 </template>
 
@@ -34,52 +23,42 @@
 import { productsStore } from "@/public/stores/productsStore";
 
 export default {
-  name: "FavoriteProductHeader",
   props: {
     isEditMode: Boolean,
     restaurantName: String,
     cart: Array,
-    selectedSlot: Number,
+    selectedSlot: Number
   },
   data() {
     return {
       searchQuery: "",
-      showDropdown: false
+      showDropdown: false,
+      productsStore
     };
   },
   computed: {
     filteredProducts() {
       if (!this.searchQuery) return [];
-      const q = this.searchQuery.toLowerCase();
-      const filtered = productsStore.products.filter((p) =>
-          p.productName.toLowerCase().includes(q)
-      );
-      return filtered;
+      return productsStore.findByName(this.searchQuery);
     }
   },
   mounted() {
     document.addEventListener("click", this.handleClickOutside);
   },
-
   beforeUnmount() {
     document.removeEventListener("click", this.handleClickOutside);
   },
   methods: {
-    addProductToCart(product) {
-      this.$emit("add-to-cart", {
-        ...product,
-        price: product.productPrice,
-      });
-    },
-
     handleClickOutside(e) {
-      if (!this.$el.contains(e.target)) {
-        this.showDropdown = false;
-      }
+      if (!this.$el.contains(e.target)) this.showDropdown = false;
+    },
+    emitAddToCart(p) {
+      this.$emit("add-to-cart", p);
     }
-  },
+  }
 };
 </script>
+
 
 <style scoped>
 .products-header {
