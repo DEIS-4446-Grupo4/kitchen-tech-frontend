@@ -42,9 +42,10 @@
       </div>
     </div>
 
-    <button class="charge-button" @click="charge">
+    <button class="charge-button" @click="charge(accountToEdit?.id)">
       <span>Charge</span><span>S/{{ total.toFixed(2) }}</span>
     </button>
+
   </div>
 </template>
 
@@ -95,9 +96,18 @@ export default {
     closeModal() { this.showModal = false; },
     charge() {
       if (confirm("Are you sure you want to charge?")) {
-        this.$emit("charge", this.accountToEdit.id);
+        const accountId = this.accountToEdit?.id || null;
+
+        if (!accountId) {
+          // Si no hay cuenta, se hace fast-charge
+          this.$emit("fast-charge");
+        } else {
+          // Si hay cuenta, se hace charge normal
+          this.$emit("charge", accountId);
+        }
       }
     }
+
   }
 };
 </script>

@@ -29,6 +29,7 @@
               :restaurant-id="String(restaurantId)"
               :account-to-edit="currentAccount"
               @charge="charge"
+              @fast-charge="fastCharge"
               @update-cart="handleCartUpdate"
               @save-sale="handleSaveSale"
               @account-updated="onAccountSaved"
@@ -126,43 +127,56 @@ export default {
       localStorage.removeItem("accountData");
       this.$forceUpdate();
     },
+    async fastCharge() {
+      this.cartStore.clear();
+      this.currentAccount = null;
+      localStorage.removeItem("accountData");
+
+      // Mostrar confirmación
+      this.showChargeConfirmation = true;
+    },
     async charge(accountId) {
+      console.log(accountId);
+      // Verificar si hay cuenta asociada
       if (!accountId) {
-        console.warn("No hay cuenta para cobrar.");
+        // Limpiar carrito y datos locales
         this.cartStore.clear();
         this.currentAccount = null;
         localStorage.removeItem("accountData");
+
+        // Mostrar confirmación
         this.showChargeConfirmation = true;
         return;
       }
 
       try {
-        // 1️⃣ Obtener la cuenta antes de eliminarla
+        // Primero intentar obtener la cuenta (puede que ya no exista)
         const account = await accountService.getAccountById(accountId).catch(() => null);
 
-        // 2️⃣ Liberar la mesa si aplica
+        // Liberar mesa solo si existe y tiene tabla asignada
         if (account?.table?.id) {
           const table = await tableService.getTableById(account.table.id);
           if (table) {
-            table.tableStatus = "ToClean"; // o "Free" según corresponda
+            table.tableStatus = "ToClean"; // o "Free" si quieres liberar directamente
             await tableService.updateTable(table);
           }
         }
 
-        // 3️⃣ Borrar la cuenta
+        // Eliminar cuenta si existe
         await accountService.deleteAccount(accountId);
 
-        // 4️⃣ Limpiar carrito y UI
+        // Limpiar carrito y accountData
         this.cartStore.clear();
         this.currentAccount = null;
         localStorage.removeItem("accountData");
 
-        // 5️⃣ Forzar recarga de stores
+        // Forzar recarga de mesas y cuentas
         localStorage.removeItem("tables_" + this.restaurantId);
-        await tablesStore.loadTables(this.restaurantId, true); // true para forzar recarga
+        await tablesStore.loadTables(this.restaurantId, true);
         localStorage.setItem("accounts_dirty", "1");
         await accountsStore.loadAccounts(this.restaurantId);
 
+        // Mostrar confirmación
         this.showChargeConfirmation = true;
 
       } catch (e) {
