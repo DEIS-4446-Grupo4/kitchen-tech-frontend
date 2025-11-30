@@ -92,7 +92,11 @@ export default {
     },
     openSaveModal() { this.showModal = true; },
     closeModal() { this.showModal = false; },
-    charge() { this.$emit("charge"); }
+    charge() {
+      if (confirm("Are you sure you want to charge?")) {
+        this.$emit("charge", this.accountToEdit.id);
+      }
+    }
   }
 };
 </script>

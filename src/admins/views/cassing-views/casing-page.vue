@@ -36,6 +36,16 @@
         </div>
       </div>
     </div>
+    <!-- Dentro del layout principal -->
+    <div v-if="showChargeConfirmation" class="charge-confirmation-overlay">
+      <div class="charge-confirmation-box">
+        <h2 class="title">Cuenta cobrada con éxito</h2>
+        <p>La cuenta ha sido cobrada y el carrito se ha vaciado.</p>
+        <button class="primary-button" @click="showChargeConfirmation = false">
+          Volver a caja
+        </button>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -70,7 +80,8 @@ export default {
       selectedSlot: null,
       productsStore,
       cartStore,
-      currentAccount: null // <-- account en edición/cargada
+      currentAccount: null,
+      showChargeConfirmation: false,
     };
   },
   computed: {
@@ -115,8 +126,37 @@ export default {
       localStorage.removeItem("accountData");
       this.$forceUpdate();
     },
-    charge() {
-      console.log("charge");
+    async charge(accountId) {
+      if (!accountId) {
+        console.warn("No hay cuenta para cobrar.");
+        this.cartStore.clear();
+        this.currentAccount = null;
+        localStorage.removeItem("accountData");
+        this.showChargeConfirmation = true;
+        return;
+      }
+
+      try {
+        await accountService.deleteAccount(accountId);
+
+        // intentar liberar mesa solo si existía la cuenta
+        const account = await accountService.getAccountById(accountId).catch(() => null);
+        if (account?.table?.id) {
+          const table = await tableService.getTableById(account.table.id);
+          if (table) {
+            table.tableStatus = "ToClean";
+            await tableService.updateTable(table);
+          }
+        }
+
+        this.cartStore.clear();
+        this.currentAccount = null;
+        localStorage.removeItem("accountData");
+        this.showChargeConfirmation = true;
+      } catch (e) {
+        console.error("Error cobrando cuenta:", e);
+        alert("No se pudo cobrar la cuenta. Revisa la consola.");
+      }
     },
 
     /**
@@ -328,4 +368,51 @@ favorite-product-header-component {
   min-width: 350px;
   min-height: 690px;
 }
+.charge-confirmation-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: rgba(0,0,0,0.4);
+  z-index: 2000;
+}
+
+.charge-confirmation-box {
+  background-color: #cbcbd8;
+  font-weight: 600;
+  font-family: 'Red Hat Display', sans-serif;
+  padding: 2rem;
+  border-radius: 12px;
+  min-width: 400px;
+  max-width: 90%;
+  text-align: center;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+}
+
+.charge-confirmation-box .title {
+  font-size: 1.8rem;
+  margin-bottom: 1rem;
+}
+
+.charge-confirmation-box p {
+  font-size: 1rem;
+  margin-bottom: 2rem;
+}
+
+.charge-confirmation-box .primary-button {
+  background-color: #201e35; /* ejemplo de botón principal del sistema */
+  color: #cbcbd8;
+  font-weight: bold;
+  border: none;
+  padding: 0.8rem 2rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: 0.2s all;
+}
+.charge-confirmation-box .primary-button:hover {
+  background-color: #201e35;
+}
+
+
 </style>
