@@ -166,6 +166,8 @@ export default {
      */
     async handleSaveSale(payload) {
       try {
+        await this.$nextTick();
+
         if (!this.restaurantId) {
           const ud = JSON.parse(localStorage.getItem("userData")) || {};
           this.restaurantId = ud.restaurantId;
@@ -184,38 +186,17 @@ export default {
           return;
         }
 
-        // carga accounts para validar mesa ocupada (solo si hay mesa)
+        // Validaciones y preparación del payload...
         await accountsStore.loadAccounts(this.restaurantId);
-        if (tableNumber) {
-          const already = accountsStore.accounts.find(
-              acc => String(acc.table?.tableNumber) === String(tableNumber) &&
-                  (acc.state === 0 || String(acc.state).toLowerCase() === "open")
-          );
-          // si existe y NO es la misma que estamos actualizando -> error
-          if (already && (!payloadId || String(already.id) !== String(payloadId))) {
-            alert("La mesa ya tiene una cuenta abierta.");
-            return;
-          }
-        }
 
-        const now = new Date().toISOString();
-        const productsPayload = cart.map(item => ({
-          productId: item.id,
-          productName: item.productName,
-          price: item.price,
-          quantity: item.quantity
-        }));
-
-        // --- UPDATE flow ---
         if (payloadId) {
-          // obtener la cuenta actual para comparar mesa anterior
+          // --- UPDATE flow ---
           const existing = await accountService.getAccountById(payloadId);
           if (!existing) {
             alert("No se encontró la cuenta a actualizar.");
             return;
           }
 
-          // construir payload para update. La ruta backend espera PUT /account/{accountId}
           const updatePayload = {
             id: payloadId,
             accountName,
@@ -223,21 +204,25 @@ export default {
             table: tableNumber ? { id: Number(tableNumber) } : null,
             restaurantId: this.restaurantId,
             state: existing.state || 0,
-            totalAccount: productsPayload.reduce((t, p) => t + p.price * p.quantity, 0),
-            dateCreated: existing.dateCreated || now,
-            dateLog: now,
-            products: productsPayload
+            totalAccount: cart.reduce((t, p) => t + p.price * p.quantity, 0),
+            dateCreated: existing.dateCreated || new Date().toISOString(),
+            dateLog: new Date().toISOString(),
+            products: cart.map(item => ({
+              productId: item.id,
+              productName: item.productName,
+              price: item.price,
+              quantity: item.quantity
+            }))
           };
 
-          // ejecutar update
           const updated = await accountService.updateAccount(updatePayload);
 
-          // manejar cambio de mesa: liberar antigua y ocupar nueva
+          // Manejar mesas (liberar/ocupar)
           try {
             const prevTableId = existing.table?.id;
             const newTableId = updated.table?.id || (tableNumber ? Number(tableNumber) : null);
 
-            if (prevTableId && String(prevTableId) !== String(newTableId)) {
+            if (prevTableId && prevTableId !== newTableId) {
               const prevTable = await tableService.getTableById(prevTableId);
               if (prevTable) {
                 prevTable.tableStatus = "Free";
@@ -253,24 +238,19 @@ export default {
               }
             }
 
-            // invalidar cache y recargar
             localStorage.removeItem("tables_" + this.restaurantId);
             await tablesStore.loadTables(this.restaurantId, true);
+
           } catch (tErr) {
             console.warn("No se pudo actualizar estado de mesas:", tErr);
           }
 
-          // refrescar accounts y limpiar
           localStorage.setItem("accounts_dirty", "1");
           await accountsStore.loadAccounts(this.restaurantId);
 
           this.onAccountSaved();
-          // navegar
           const userData = JSON.parse(localStorage.getItem("userData")) || {};
-          const rn = userData.restaurantName;
-          const ur = userData.role;
-          this.$router.push(`/${rn}/${ur}/saved-accounts`);
-
+          this.$router.push(`/${userData.restaurantName}/${userData.role}/saved-accounts`);
           return;
         }
 
@@ -279,46 +259,41 @@ export default {
           accountName,
           client: null,
           table: tableNumber ? { id: Number(tableNumber) } : null,
-          state: 0, // abierto
+          state: 0,
           restaurantId: this.restaurantId,
-          totalAccount: productsPayload.reduce((t, p) => t + p.price * p.quantity, 0),
-          dateCreated: now,
-          dateLog: now,
-          products: productsPayload
+          totalAccount: cart.reduce((t, p) => t + p.price * p.quantity, 0),
+          dateCreated: new Date().toISOString(),
+          dateLog: new Date().toISOString(),
+          products: cart.map(item => ({
+            productId: item.id,
+            productName: item.productName,
+            price: item.price,
+            quantity: item.quantity
+          }))
         };
 
         const createdAccount = await accountService.addAccount(accountPayload);
 
-        if (!createdAccount?.id) {
-          throw new Error("No se recibió id de la cuenta creada.");
-        }
+        if (!createdAccount?.id) throw new Error("No se recibió id de la cuenta creada.");
 
-        // marcar mesa ocupada si aplica
+        // Marcar mesa ocupada si aplica
         if (tableNumber) {
-          try {
-            const newTableId = createdAccount.table?.id || Number(tableNumber);
-            const newTable = await tableService.getTableById(newTableId);
-            if (newTable) {
-              newTable.tableStatus = "Occupied";
-              await tableService.updateTable(newTable);
-            }
-            localStorage.removeItem("tables_" + this.restaurantId);
-            await tablesStore.loadTables(this.restaurantId, true);
-          } catch (tErr) {
-            console.warn("No se pudo actualizar la mesa tras crear cuenta:", tErr);
+          const newTableId = createdAccount.table?.id || Number(tableNumber);
+          const newTable = await tableService.getTableById(newTableId);
+          if (newTable) {
+            newTable.tableStatus = "Occupied";
+            await tableService.updateTable(newTable);
           }
+          localStorage.removeItem("tables_" + this.restaurantId);
+          await tablesStore.loadTables(this.restaurantId, true);
         }
 
-        // refrescar accounts
         localStorage.setItem("accounts_dirty", "1");
         await accountsStore.loadAccounts(this.restaurantId);
 
-        // limpiar y redirigir
         this.onAccountSaved();
         const userData = JSON.parse(localStorage.getItem("userData")) || {};
-        const rn = userData.restaurantName;
-        const ur = userData.role;
-        this.$router.push(`/${rn}/${ur}/saved-accounts`);
+        this.$router.push(`/${userData.restaurantName}/${userData.role}/saved-accounts`);
 
       } catch (err) {
         console.error("Error guardando la cuenta:", err);

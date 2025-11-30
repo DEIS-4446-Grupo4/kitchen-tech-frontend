@@ -1,5 +1,8 @@
 <template>
   <div class="modal" v-if="isVisible">
+    <div v-if="loading" class="loader-overlay">
+      <div class="loader"></div>
+    </div>
     <div class="modal-content">
       <div class="modal-header">
         <p class="title">{{ isUpdate ? 'Update Order' : 'Save Order' }}</p>
@@ -46,7 +49,8 @@ export default {
       tableNumber: "",
       manualAccountName: "",
       isUpdate: false,
-      existingAccountData: null
+      existingAccountData: null,
+      loading: true,
     };
   },
   watch: {

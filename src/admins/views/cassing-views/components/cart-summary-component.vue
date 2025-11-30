@@ -30,7 +30,7 @@
           :is-visible="showModal"
           :restaurant-id="String(restaurantId)"
           :account-to-edit="accountToEdit"
-          @save-sale="$emit('save-sale', $event)"
+          @save-sale="$emit('save-sale', $event); loading=true"
           @close-modal="closeModal"
       />
 
@@ -59,12 +59,13 @@ export default {
     igv: Number,
     total: Number,
     restaurantId: { type: String, required: true },
-    accountToEdit: Object
+    accountToEdit: Object,
   },
   data() {
     return {
       cartStore,
       showModal: false,
+      loading: true
     };
   },
   computed: {
