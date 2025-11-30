@@ -49,6 +49,8 @@ import { productsStore } from "@/public/stores/productsStore";
 import { cartStore } from "@/public/stores/cartStore";
 import { accountsStore } from "@/public/stores/accountStore";
 import { accountService } from "@/public/services/accountsService";
+import {tablesService as tableService} from "@/public/services/tablesService";
+import {tablesStore} from "@/public/stores/tablesStore";
 
 export default {
   components: {
@@ -140,6 +142,21 @@ export default {
         const createdAccount = await accountService.addAccount(accountPayload);
 
         if (!createdAccount?.id) throw new Error("No se recibió id de la cuenta creada.");
+
+        if (tableNumber) {
+          const tableToUpdate = {
+            id: createdAccount.table?.id,
+            tableNumber: tableNumber,
+            tableCapacity: createdAccount.table?.tableCapacity || 0,
+            tableGuests: createdAccount.table?.tableGuests || 0,
+            tableStatus: "Occupied",       // marca la mesa como ocupada
+            restaurantId: this.restaurantId
+          };
+          await tableService.updateTable(tableToUpdate);
+          localStorage.removeItem("tables_" + this.restaurantId);
+          await tablesStore.loadTables(this.restaurantId, true);
+        }
+
 
         // Limpiar carrito y refrescar stores
         this.cartStore.clear();
