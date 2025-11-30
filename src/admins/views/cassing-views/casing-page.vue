@@ -18,7 +18,6 @@
               :is-edit-mode="isEditMode"
               @add-to-cart="handleAddToCart"
           />
-
         </div>
 
         <div class="right-section">
@@ -30,6 +29,7 @@
               :restaurant-id="String(restaurantId)"
               @charge="charge"
               @update-cart="handleCartUpdate"
+              @save-sale="handleSaveSale"
               @account-updated="onAccountSaved"
           />
         </div>
@@ -47,7 +47,8 @@ import FavoriteProductHeader from "@/admins/views/cassing-views/components/favor
 
 import { productsStore } from "@/public/stores/productsStore";
 import { cartStore } from "@/public/stores/cartStore";
-import { favoritesStore } from "@/public/stores/favoritesStore";
+import { accountsStore } from "@/public/stores/accountStore";
+import { accountService } from "@/public/services/accountsService";
 
 export default {
   components: {
@@ -62,64 +63,108 @@ export default {
       restaurantName: "",
       userRole: "",
       restaurantId: null,
-
       isEditMode: false,
       selectedSlot: null,
-
       productsStore,
       cartStore
     };
   },
-
   computed: {
     productSlots() {
       return this.productsStore.products.slice(0, 30);
     }
   },
-
   async created() {
     this.cartStore.load();
-
     const userData = JSON.parse(localStorage.getItem("userData")) || {};
     this.restaurantId = userData.restaurantId;
-
     await this.productsStore.loadProducts(this.restaurantId);
   },
-
   methods: {
-    async refreshProducts() {
-      await productsStore.refresh(this.restaurantId);
-      // update favorites if necessary
-      this.favoriteProducts = [...favoritesStore.slots];
+    refreshProducts() {
+      productsStore.refresh(this.restaurantId);
     },
-
-    openProductList(index) {
-      this.selectedSlot = index;
-    },
-
     handleAddToCart(product) {
       this.cartStore.addProduct(product, 1);
     },
-
     handleCartUpdate(newCart) {
-
       this.cartStore.cart = newCart;
       this.cartStore.persist();
     },
-
     onAccountSaved() {
-      // cuando se crea una nueva cuenta desde el modal, marca accounts_dirty (fuera de scope)
-      // si hace falta refrescar productos (no normalmente) => productsStore.refresh(this.restaurantId)
-      // limpiar cart
       this.cartStore.clear();
-      // fuerza recálculo UI:
       this.$forceUpdate();
     },
-
     charge() {
-      // lógica de cobro
       console.log("charge");
+    },
+    async handleSaveSale({ accountName, tableNumber }) {
+      try {
+        if (!this.restaurantId) {
+          const ud = JSON.parse(localStorage.getItem("userData")) || {};
+          this.restaurantId = ud.restaurantId;
+        }
+
+        // Validar si ya hay cuenta abierta para la mesa
+        await accountsStore.loadAccounts(this.restaurantId);
+        const already = accountsStore.accounts.find(
+            acc => String(acc.table?.tableNumber) === String(tableNumber) &&
+                (acc.state === 0 || String(acc.state).toLowerCase() === "open")
+        );
+        if (already) {
+          alert("La mesa ya tiene una cuenta abierta.");
+          return;
+        }
+
+        const now = new Date().toISOString();
+        const cart = this.cartStore.cart || [];
+
+        // Crear payload completo con productos
+        const accountPayload = {
+          accountName,
+          client: null,
+          table: tableNumber ? { id: Number(tableNumber), tableStatus: 1 } : null,
+          state: 1,
+          restaurantId: this.restaurantId,
+          totalAccount: cart.reduce((t, i) => t + i.price * i.quantity, 0),
+          dateCreated: now,
+          dateLog: now,
+          products: cart.map(item => ({
+            productId: item.id,
+            productName: item.productName,
+            price: item.price,
+            quantity: item.quantity
+          }))
+      };
+
+        const createdAccount = await accountService.addAccount(accountPayload);
+
+        if (!createdAccount?.id) throw new Error("No se recibió id de la cuenta creada.");
+
+        // Limpiar carrito y refrescar stores
+        this.cartStore.clear();
+        localStorage.removeItem("cartData");
+        localStorage.setItem("accounts_dirty", "1");
+        await accountsStore.loadAccounts(this.restaurantId);
+
+        this.onAccountSaved();
+
+        // Redirigir
+        const restaurantData = JSON.parse(localStorage.getItem('userData'));
+        if (restaurantData) {
+          this.restaurantName = restaurantData.restaurantName;
+          this.userRole = restaurantData.role;
+        }
+
+        this.$router.push(`/${this.restaurantName}/${this.userRole}/saved-accounts`);
+
+
+      } catch (err) {
+        console.error("Error guardando la cuenta:", err);
+        alert("Hubo un error guardando la cuenta. Revisa la consola.");
+      }
     }
+
   }
 };
 </script>

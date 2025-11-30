@@ -29,7 +29,7 @@
       <save-order-component
           :is-visible="showModal"
           :restaurant-id="String(restaurantId)"
-          @save-sale="handleSaveSale"
+          @save-sale="$emit('save-sale', $event)"
           @close-modal="closeModal"
       />
       <div class="summary">
@@ -89,13 +89,10 @@ export default {
     },
     openSaveModal() { this.showModal = true; },
     closeModal() { this.showModal = false; },
-    charge() {
-      this.$emit("charge");
-    }
+    charge() { this.$emit("charge"); }
   }
 };
 </script>
-
 
 <style scoped>
 .cart-summary {

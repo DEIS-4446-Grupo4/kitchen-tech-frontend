@@ -14,41 +14,33 @@
                 id="accountName"
                 v-model="accountName"
                 @input="handleAccountNameInput"
+                placeholder="Ingrese nombre de la cuenta"
             />
           </div>
           <div class="form-group table-number">
-            <label for="tableNumber">Mesa</label>
+            <label for="tableNumber">Mesa (opcional)</label>
             <input
                 type="text"
                 id="tableNumber"
                 v-model="tableNumber"
                 :disabled="isUpdate"
+                placeholder="Dejar vacío si no hay mesa"
             />
           </div>
         </div>
-        <button type="submit" class="save-button">
-          {{ isUpdate ? 'Update Order' : 'Save Order' }}
-        </button>
+        <button type="submit" class="save-button">{{ isUpdate ? 'Update Order' : 'Save Order' }}</button>
       </form>
     </div>
   </div>
 </template>
 
 <script>
-import { accountService } from "@/public/services/accountsService";
-
 export default {
   props: {
-    isVisible: {
-      type: Boolean,
-      default: false,
-    },
-    restaurantId: {
-      type: String,
-      required: true
-    }
+    isVisible: { type: Boolean, default: false },
+    restaurantId: { type: String, required: true },
+    defaultTableNumber: { type: String, default: "" },
   },
-
   data() {
     return {
       accountName: "",
@@ -58,97 +50,54 @@ export default {
       existingAccountData: null
     };
   },
-
   watch: {
     isVisible(newVal) {
-      if (newVal) {
-        this.loadExistingData();
-      }
+      if (newVal) this.initializeFields();
     },
     tableNumber(newVal) {
-      if (!this.manualAccountName && !this.isUpdate) {
+      if (!this.manualAccountName && !this.isUpdate && newVal) {
         this.accountName = `Mesa: ${newVal}`;
       }
-    },
+    }
   },
-
   methods: {
-    loadExistingData() {
-      const accountData = JSON.parse(localStorage.getItem('accountData'));
-      if (accountData) {
-        this.existingAccountData = accountData;
-        this.isUpdate = true;
-        this.accountName = accountData.accountName;
-        this.tableNumber = accountData.table?.tableNumber?.toString() || '';
-      } else {
-        this.isUpdate = false;
-        this.existingAccountData = null;
-      }
+    initializeFields() {
+      this.tableNumber = this.defaultTableNumber || "";
+      this.accountName = this.tableNumber ? `Mesa: ${this.tableNumber}` : "";
+      this.manualAccountName = "";
     },
-
     handleAccountNameInput(event) {
       if (!this.isUpdate) {
-        const prefix = `Mesa: ${this.tableNumber}`;
-        this.manualAccountName = event.target.value.startsWith(prefix)
-            ? event.target.value.slice(prefix.length).trimStart()
-            : event.target.value;
-
-        this.accountName = `${prefix} ${this.manualAccountName}`;
+        if (this.tableNumber) {
+          const prefix = `Mesa: ${this.tableNumber}`;
+          this.manualAccountName = event.target.value.startsWith(prefix)
+              ? event.target.value.slice(prefix.length).trimStart()
+              : event.target.value;
+          this.accountName = `${prefix} ${this.manualAccountName}`.trim();
+        } else {
+          this.accountName = event.target.value;
+        }
       }
     },
-
-    async updateExistingAccount() {
-      try {
-        const cartData = JSON.parse(localStorage.getItem('cartData')) || [];
-
-        // Crear el payload completo incluyendo los productos
-        const accountUpdatePayload = {
-          ...this.existingAccountData,
-          accountName: this.accountName,
-          dateLog: new Date().toISOString(),
-          totalAccount: cartData.reduce((total, item) => total + (item.price * item.quantity), 0),
-          // Incluir la lista completa de productos actualizada
-          products: cartData.map(product => ({
-            id: product.id,
-            quantity: product.quantity,
-            accountId: this.existingAccountData.id
-          }))
-        };
-
-        // Realizar una única llamada para actualizar la cuenta con todos sus productos
-        await accountService.updateAccount(accountUpdatePayload);
-
-        this.$emit('account-updated');
-        this.resetFields();
-        localStorage.removeItem('cartData');
-      } catch (error) {
-        console.error('Error updating account:', error);
-        alert('Error updating account. Please try again.');
+    save() {
+      if (!this.accountName.trim()) {
+        alert("Ingrese un nombre de cuenta.");
+        return;
       }
-    },
-    
-    async save() {
-      if (this.isUpdate) {
-        await this.updateExistingAccount();
-      } else {
-        this.$emit("save-sale", this.accountName, this.tableNumber);
-      }
+      // tableNumber será null si está vacío
+      const table = this.tableNumber ? this.tableNumber : null;
+      this.$emit("save-sale", { accountName: this.accountName, tableNumber: table });
       this.closeModal();
     },
-
-    resetFields() {
+    closeModal() {
       this.accountName = "";
       this.tableNumber = "";
       this.manualAccountName = "";
       this.isUpdate = false;
       this.existingAccountData = null;
-    },
-
-    closeModal() {
-      this.resetFields();
       this.$emit("close-modal");
     }
-  },
+  }
 };
 </script>
 
