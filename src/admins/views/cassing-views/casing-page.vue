@@ -230,9 +230,8 @@ export default {
           this.onAccountSaved();
           // navegar
           const userData = JSON.parse(localStorage.getItem("userData")) || {};
-          const rn = this.restaurantName || userData.restaurantName || "";
-          const ur = this.userRole || userData.role || "";
-          console.log(rn);
+          const rn = userData.restaurantName;
+          const ur = userData.role;
           this.$router.push(`/${rn}/${ur}/saved-accounts`);
 
           return;
@@ -280,8 +279,8 @@ export default {
         // limpiar y redirigir
         this.onAccountSaved();
         const userData = JSON.parse(localStorage.getItem("userData")) || {};
-        const rn = this.restaurantName || userData.restaurantName || "";
-        const ur = this.userRole || userData.role || "";
+        const rn = userData.restaurantName;
+        const ur = userData.role;
         this.$router.push(`/${rn}/${ur}/saved-accounts`);
 
       } catch (err) {
