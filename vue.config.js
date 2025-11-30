@@ -7,6 +7,6 @@ module.exports = defineConfig({
         target: 'https://kitchen-tech-backend.onrender.com',
         changeOrigin: true,
       }
-    }
+    },
   }
 })

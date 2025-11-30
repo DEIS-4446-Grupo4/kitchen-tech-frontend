@@ -10,7 +10,7 @@
         <img
             :src="require('/public/assets/images/delete.png')"
             class="delete-button"
-            @click="$emit('delete-account', account.id)"
+            @click.stop="$emit('delete-account', account.id)"
             alt="delete"
         />
       <p class="account-price">S/. {{ account.totalAccount }}</p>
