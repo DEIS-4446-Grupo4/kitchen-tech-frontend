@@ -86,19 +86,20 @@ export default {
     this.userRole = userData.role || "";
     await this.productsStore.loadProducts(this.restaurantId);
 
-    // Si venimos desde SavedAccounts, se guarda accountData en localStorage:
-    const accountData = JSON.parse(localStorage.getItem("accountData"));
-    console.log("Encontre el id en casing-page: " + accountData.id);
+    const accountData = JSON.parse(localStorage.getItem("accountData")) || null;
 
     if (accountData && accountData.id) {
-      // setear currentAccount para que el modal muestre datos
+      console.log("Encontre el id en casing-page: " + accountData.id);
       this.currentAccount = accountData;
-      // también cargar el cart (ya lo hace saved-accounts, pero asegurar)
+
       const cartData = JSON.parse(localStorage.getItem("cartData")) || [];
       if (cartData.length) {
         this.cartStore.cart = cartData;
       }
+    } else {
+      console.log("No se encontró accountData en localStorage.");
     }
+
   },
   methods: {
     refreshProducts() {
@@ -200,10 +201,9 @@ export default {
             const newTableId = updated.table?.id || (tableNumber ? Number(tableNumber) : null);
 
             if (prevTableId && String(prevTableId) !== String(newTableId)) {
-              // liberar anterior
               const prevTable = await tableService.getTableById(prevTableId);
               if (prevTable) {
-                prevTable.tableStatus = "Available";
+                prevTable.tableStatus = "Free";
                 await tableService.updateTable(prevTable);
               }
             }

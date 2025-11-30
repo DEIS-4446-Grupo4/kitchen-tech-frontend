@@ -63,6 +63,14 @@ export default {
         }
       }
     },
+    tableNumber(newVal) {
+      if (!this.isUpdate) {
+        const prefix = newVal ? `Mesa: ${newVal}` : "";
+        this.accountName = prefix
+            ? `${prefix} ${this.manualAccountName}`.trim()
+            : this.manualAccountName;
+      }
+    }
   },
   methods: {
     initializeFields() {
@@ -82,21 +90,37 @@ export default {
     prepareUpdate(account) {
       this.isUpdate = true;
       this.existingAccountData = account;
-      this.accountName = account.accountName || "";
       // table puede venir en account.table (obj) o tableId (dto)
-      this.tableNumber = account.table?.tableNumber || account.tableNumber || account.tableId || "";
+      const tableNum = account.table?.tableNumber || account.tableNumber || account.tableId || "";
+      this.tableNumber = tableNum;
+
+      const accName = account.accountName || "";
+      if (tableNum) {
+        const prefix = `Mesa: ${tableNum}`;
+        if (accName.startsWith(prefix)) {
+          this.manualAccountName = accName.slice(prefix.length).trim();
+        } else {
+          this.manualAccountName = accName;
+        }
+        this.accountName = `${prefix} ${this.manualAccountName}`.trim();
+      } else {
+        this.manualAccountName = accName;
+        this.accountName = accName;
+      }
     },
 
     handleAccountNameInput(event) {
       if (!this.isUpdate) {
+        const value = event.target.value || "";
         if (this.tableNumber) {
           const prefix = `Mesa: ${this.tableNumber}`;
-          this.manualAccountName = event.target.value.startsWith(prefix)
-              ? event.target.value.slice(prefix.length).trimStart()
-              : event.target.value;
+          this.manualAccountName = value.startsWith(prefix)
+              ? value.slice(prefix.length).trimStart()
+              : value;
           this.accountName = `${prefix} ${this.manualAccountName}`.trim();
         } else {
-          this.accountName = event.target.value;
+          this.manualAccountName = value;
+          this.accountName = value;
         }
       }
     },
