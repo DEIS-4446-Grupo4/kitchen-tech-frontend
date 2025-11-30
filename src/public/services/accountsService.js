@@ -11,12 +11,19 @@ export const accountService = {
         try {
             const token = getAuthToken();
             const response = await axiosInstance.get(`${API_URL}/${accountId}`, {
-                headers: {
-                    Authorization: `Bearer ${token}`
-                }
+                headers: { Authorization: `Bearer ${token}` }
             });
 
-            return response.data;
+            const data = response.data;
+
+            // Mapear table si existe tableId
+            data.table = data.table || (data.tableId ? { id: data.tableId, tableNumber: null } : null);
+
+            // Mapear productos si no vienen
+            data.products = data.products || [];
+
+            return data;
+
         } catch (error) {
             console.error("Error fetching account", error.response ? error.response.data : error.message);
             throw error;

@@ -10,8 +10,6 @@ export const accountsStore = reactive({
         if (!restaurantId) return;
 
         const dirty = localStorage.getItem("accounts_dirty") === "1";
-
-        // Usa cache si existe y no está dirty
         const cached = localStorage.getItem("accounts_" + restaurantId);
 
         if (cached && !dirty && this.lastRestaurantId === restaurantId) {
@@ -29,6 +27,8 @@ export const accountsStore = reactive({
                 .map(acc => ({
                     ...acc,
                     tableNumber: acc.table?.tableNumber || null,
+                    client: acc.client || null,
+                    totalAccount: acc.totalAccount || null,
                 }))
                 .sort((a, b) => (a.id < b.id ? 1 : -1));
 

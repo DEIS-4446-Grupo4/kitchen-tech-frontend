@@ -13,7 +13,7 @@
             @click.stop="$emit('delete-account', account.id)"
             alt="delete"
         />
-      <p class="account-price">S/. {{ account.totalAccount }}</p>
+      <p class="account-price">S/. {{ account.totalAccount ?? 0}}</p>
     </div>
   </div>
 </template>

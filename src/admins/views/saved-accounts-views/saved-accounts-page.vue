@@ -40,6 +40,7 @@ import userService from "@/public/services/userService";
 import { accountService } from "@/public/services/accountsService";
 import { tablesService } from "@/public/services/tablesService";
 import { accountsStore } from "@/public/stores/accountStore";
+import { cartStore } from "@/public/stores/cartStore";
 
 export default {
   components: {
@@ -107,18 +108,31 @@ export default {
     async loadAccountProducts(accountId) {
       try {
         const accountData = await accountService.getAccountById(accountId);
-
-        const cart = accountData.products.map(p => ({
+        console.log("accountData", accountData.products);
+        const cart = (accountData.products || []).map(p => ({
           id: p.productId,
           productName: p.productName,
           price: p.price,
           quantity: p.quantity
         }));
+        console.log(this.cart);
 
+        // persist account and cart to localStorage (existing behavior)
         localStorage.setItem("accountData", JSON.stringify(accountData));
         localStorage.setItem("cartData", JSON.stringify(cart));
 
-        this.$router.push(`/${this.restaurantName}/${this.userRole}/casing`);
+        // Ensure the central cart store is updated BEFORE navigation so Casing reads it immediately
+        cartStore.cart = cart;
+        if (typeof cartStore.persist === "function") {
+          cartStore.persist();
+        }
+
+        // Build route using userData from localStorage to be consistent
+        const userData = JSON.parse(localStorage.getItem("userData")) || {};
+        const routeRestaurant = userData.restaurantName || this.restaurantName;
+        const routeRole = userData.role || this.userRole;
+
+        this.$router.push(`/${routeRestaurant}/${routeRole}/casing`);
 
       } catch (error) {
         console.error("Error loading products:", error);
