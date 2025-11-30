@@ -23,7 +23,6 @@
                 type="text"
                 id="tableNumber"
                 v-model="tableNumber"
-                :disabled="isUpdate"
                 placeholder="Dejar vacío si no hay mesa"
             />
           </div>
@@ -39,7 +38,7 @@ export default {
   props: {
     isVisible: { type: Boolean, default: false },
     restaurantId: { type: String, required: true },
-    defaultTableNumber: { type: String, default: "" },
+    accountToEdit: { type: Object, default: null }
   },
   data() {
     return {
@@ -54,18 +53,40 @@ export default {
     isVisible(newVal) {
       if (newVal) this.initializeFields();
     },
-    tableNumber(newVal) {
-      if (!this.manualAccountName && !this.isUpdate && newVal) {
-        this.accountName = `Mesa: ${newVal}`;
+    accountToEdit: {
+      immediate: true,
+      handler(newVal) {
+        if (newVal && this.isVisible) {
+          this.prepareUpdate(newVal);
+        } else if (newVal && !this.isVisible) {
+          this.existingAccountData = newVal;
+        }
       }
-    }
+    },
   },
   methods: {
     initializeFields() {
-      this.tableNumber = this.defaultTableNumber || "";
-      this.accountName = this.tableNumber ? `Mesa: ${this.tableNumber}` : "";
+      // preferir la cuenta existente si llegó por prop
+      if (this.existingAccountData) {
+        this.prepareUpdate(this.existingAccountData);
+        return;
+      }
+      // resetear campos para creación
+      this.tableNumber = "";
+      this.accountName = "";
       this.manualAccountName = "";
+      this.isUpdate = false;
+      this.existingAccountData = null;
     },
+
+    prepareUpdate(account) {
+      this.isUpdate = true;
+      this.existingAccountData = account;
+      this.accountName = account.accountName || "";
+      // table puede venir en account.table (obj) o tableId (dto)
+      this.tableNumber = account.table?.tableNumber || account.tableNumber || account.tableId || "";
+    },
+
     handleAccountNameInput(event) {
       if (!this.isUpdate) {
         if (this.tableNumber) {
@@ -79,16 +100,24 @@ export default {
         }
       }
     },
+
     save() {
-      if (!this.accountName.trim()) {
+      if (!this.accountName || !this.accountName.trim()) {
         alert("Ingrese un nombre de cuenta.");
         return;
       }
-      // tableNumber será null si está vacío
+
       const table = this.tableNumber ? this.tableNumber : null;
-      this.$emit("save-sale", { accountName: this.accountName, tableNumber: table });
+
+      const payload = {
+        id: this.existingAccountData?.id || null,
+        accountName: this.accountName,
+        tableNumber: table
+      };
+      this.$emit("save-sale", payload);
       this.closeModal();
     },
+
     closeModal() {
       this.accountName = "";
       this.tableNumber = "";

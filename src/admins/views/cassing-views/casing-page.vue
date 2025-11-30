@@ -27,6 +27,7 @@
               :igv="cartStore.igv()"
               :total="cartStore.total()"
               :restaurant-id="String(restaurantId)"
+              :account-to-edit="currentAccount"
               @charge="charge"
               @update-cart="handleCartUpdate"
               @save-sale="handleSaveSale"
@@ -49,8 +50,8 @@ import { productsStore } from "@/public/stores/productsStore";
 import { cartStore } from "@/public/stores/cartStore";
 import { accountsStore } from "@/public/stores/accountStore";
 import { accountService } from "@/public/services/accountsService";
-import {tablesService as tableService} from "@/public/services/tablesService";
-import {tablesStore} from "@/public/stores/tablesStore";
+import { tablesService as tableService } from "@/public/services/tablesService";
+import { tablesStore } from "@/public/stores/tablesStore";
 
 export default {
   components: {
@@ -68,7 +69,8 @@ export default {
       isEditMode: false,
       selectedSlot: null,
       productsStore,
-      cartStore
+      cartStore,
+      currentAccount: null // <-- account en edición/cargada
     };
   },
   computed: {
@@ -80,7 +82,23 @@ export default {
     this.cartStore.load();
     const userData = JSON.parse(localStorage.getItem("userData")) || {};
     this.restaurantId = userData.restaurantId;
+    this.restaurantName = userData.restaurantName || userData["business-name"] || "";
+    this.userRole = userData.role || "";
     await this.productsStore.loadProducts(this.restaurantId);
+
+    // Si venimos desde SavedAccounts, se guarda accountData en localStorage:
+    const accountData = JSON.parse(localStorage.getItem("accountData"));
+    console.log("Encontre el id en casing-page: " + accountData.id);
+
+    if (accountData && accountData.id) {
+      // setear currentAccount para que el modal muestre datos
+      this.currentAccount = accountData;
+      // también cargar el cart (ya lo hace saved-accounts, pero asegurar)
+      const cartData = JSON.parse(localStorage.getItem("cartData")) || [];
+      if (cartData.length) {
+        this.cartStore.cart = cartData;
+      }
+    }
   },
   methods: {
     refreshProducts() {
@@ -95,93 +113,182 @@ export default {
     },
     onAccountSaved() {
       this.cartStore.clear();
+      this.currentAccount = null;
+      localStorage.removeItem("accountData");
       this.$forceUpdate();
     },
     charge() {
       console.log("charge");
     },
-    async handleSaveSale({ accountName, tableNumber }) {
+
+    /**
+     * Maneja tanto CREATE como UPDATE.
+     * Si payload.id existe => UPDATE, sino CREATE.
+     * payload = { id?, accountName, tableNumber }
+     */
+    async handleSaveSale(payload) {
       try {
         if (!this.restaurantId) {
           const ud = JSON.parse(localStorage.getItem("userData")) || {};
           this.restaurantId = ud.restaurantId;
         }
 
-        // Validar si ya hay cuenta abierta para la mesa
-        await accountsStore.loadAccounts(this.restaurantId);
-        const already = accountsStore.accounts.find(
-            acc => String(acc.table?.tableNumber) === String(tableNumber) &&
-                (acc.state === 0 || String(acc.state).toLowerCase() === "open")
-        );
-        if (already) {
-          alert("La mesa ya tiene una cuenta abierta.");
+        const { id: payloadId, accountName, tableNumber } = payload || {};
+        const cart = this.cartStore.cart || [];
+
+        if (!accountName || accountName.trim().length === 0) {
+          alert("Ingrese un nombre de cuenta.");
           return;
         }
 
-        const now = new Date().toISOString();
-        const cart = this.cartStore.cart || [];
+        if (!cart.length) {
+          alert("El carrito está vacío.");
+          return;
+        }
 
-        // Crear payload completo con productos
+        // carga accounts para validar mesa ocupada (solo si hay mesa)
+        await accountsStore.loadAccounts(this.restaurantId);
+        if (tableNumber) {
+          const already = accountsStore.accounts.find(
+              acc => String(acc.table?.tableNumber) === String(tableNumber) &&
+                  (acc.state === 0 || String(acc.state).toLowerCase() === "open")
+          );
+          // si existe y NO es la misma que estamos actualizando -> error
+          if (already && (!payloadId || String(already.id) !== String(payloadId))) {
+            alert("La mesa ya tiene una cuenta abierta.");
+            return;
+          }
+        }
+
+        const now = new Date().toISOString();
+        const productsPayload = cart.map(item => ({
+          productId: item.id,
+          productName: item.productName,
+          price: item.price,
+          quantity: item.quantity
+        }));
+
+        // --- UPDATE flow ---
+        if (payloadId) {
+          // obtener la cuenta actual para comparar mesa anterior
+          const existing = await accountService.getAccountById(payloadId);
+          if (!existing) {
+            alert("No se encontró la cuenta a actualizar.");
+            return;
+          }
+
+          // construir payload para update. La ruta backend espera PUT /account/{accountId}
+          const updatePayload = {
+            id: payloadId,
+            accountName,
+            client: existing.client || null,
+            table: tableNumber ? { id: Number(tableNumber) } : null,
+            restaurantId: this.restaurantId,
+            state: existing.state || 0,
+            totalAccount: productsPayload.reduce((t, p) => t + p.price * p.quantity, 0),
+            dateCreated: existing.dateCreated || now,
+            dateLog: now,
+            products: productsPayload
+          };
+
+          // ejecutar update
+          const updated = await accountService.updateAccount(updatePayload);
+
+          // manejar cambio de mesa: liberar antigua y ocupar nueva
+          try {
+            const prevTableId = existing.table?.id;
+            const newTableId = updated.table?.id || (tableNumber ? Number(tableNumber) : null);
+
+            if (prevTableId && String(prevTableId) !== String(newTableId)) {
+              // liberar anterior
+              const prevTable = await tableService.getTableById(prevTableId);
+              if (prevTable) {
+                prevTable.tableStatus = "Available";
+                await tableService.updateTable(prevTable);
+              }
+            }
+
+            if (newTableId) {
+              const newTable = await tableService.getTableById(newTableId);
+              if (newTable) {
+                newTable.tableStatus = "Occupied";
+                await tableService.updateTable(newTable);
+              }
+            }
+
+            // invalidar cache y recargar
+            localStorage.removeItem("tables_" + this.restaurantId);
+            await tablesStore.loadTables(this.restaurantId, true);
+          } catch (tErr) {
+            console.warn("No se pudo actualizar estado de mesas:", tErr);
+          }
+
+          // refrescar accounts y limpiar
+          localStorage.setItem("accounts_dirty", "1");
+          await accountsStore.loadAccounts(this.restaurantId);
+
+          this.onAccountSaved();
+          // navegar
+          const userData = JSON.parse(localStorage.getItem("userData")) || {};
+          const rn = this.restaurantName || userData.restaurantName || "";
+          const ur = this.userRole || userData.role || "";
+          console.log(rn);
+          this.$router.push(`/${rn}/${ur}/saved-accounts`);
+
+          return;
+        }
+
+        // --- CREATE flow ---
         const accountPayload = {
           accountName,
           client: null,
-          table: tableNumber ? { id: Number(tableNumber), tableStatus: 1 } : null,
-          state: 1,
+          table: tableNumber ? { id: Number(tableNumber) } : null,
+          state: 0, // abierto
           restaurantId: this.restaurantId,
-          totalAccount: cart.reduce((t, i) => t + i.price * i.quantity, 0),
+          totalAccount: productsPayload.reduce((t, p) => t + p.price * p.quantity, 0),
           dateCreated: now,
           dateLog: now,
-          products: cart.map(item => ({
-            productId: item.id,
-            productName: item.productName,
-            price: item.price,
-            quantity: item.quantity
-          }))
-      };
+          products: productsPayload
+        };
 
         const createdAccount = await accountService.addAccount(accountPayload);
 
-        if (!createdAccount?.id) throw new Error("No se recibió id de la cuenta creada.");
-
-        if (tableNumber) {
-          const tableToUpdate = {
-            id: createdAccount.table?.id,
-            tableNumber: tableNumber,
-            tableCapacity: createdAccount.table?.tableCapacity || 0,
-            tableGuests: createdAccount.table?.tableGuests || 0,
-            tableStatus: "Occupied",       // marca la mesa como ocupada
-            restaurantId: this.restaurantId
-          };
-          await tableService.updateTable(tableToUpdate);
-          localStorage.removeItem("tables_" + this.restaurantId);
-          await tablesStore.loadTables(this.restaurantId, true);
+        if (!createdAccount?.id) {
+          throw new Error("No se recibió id de la cuenta creada.");
         }
 
+        // marcar mesa ocupada si aplica
+        if (tableNumber) {
+          try {
+            const newTableId = createdAccount.table?.id || Number(tableNumber);
+            const newTable = await tableService.getTableById(newTableId);
+            if (newTable) {
+              newTable.tableStatus = "Occupied";
+              await tableService.updateTable(newTable);
+            }
+            localStorage.removeItem("tables_" + this.restaurantId);
+            await tablesStore.loadTables(this.restaurantId, true);
+          } catch (tErr) {
+            console.warn("No se pudo actualizar la mesa tras crear cuenta:", tErr);
+          }
+        }
 
-        // Limpiar carrito y refrescar stores
-        this.cartStore.clear();
-        localStorage.removeItem("cartData");
+        // refrescar accounts
         localStorage.setItem("accounts_dirty", "1");
         await accountsStore.loadAccounts(this.restaurantId);
 
+        // limpiar y redirigir
         this.onAccountSaved();
-
-        // Redirigir
-        const restaurantData = JSON.parse(localStorage.getItem('userData'));
-        if (restaurantData) {
-          this.restaurantName = restaurantData.restaurantName;
-          this.userRole = restaurantData.role;
-        }
-
-        this.$router.push(`/${this.restaurantName}/${this.userRole}/saved-accounts`);
-
+        const userData = JSON.parse(localStorage.getItem("userData")) || {};
+        const rn = this.restaurantName || userData.restaurantName || "";
+        const ur = this.userRole || userData.role || "";
+        this.$router.push(`/${rn}/${ur}/saved-accounts`);
 
       } catch (err) {
         console.error("Error guardando la cuenta:", err);
         alert("Hubo un error guardando la cuenta. Revisa la consola.");
       }
     }
-
   }
 };
 </script>

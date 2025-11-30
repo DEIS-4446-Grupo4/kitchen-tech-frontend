@@ -29,7 +29,6 @@ export default {
   methods: {
     selectAccount() {
       this.$emit('load-account-products', this.account.id);
-      console.log("Emiting:", this.account);
     },
   }
 }

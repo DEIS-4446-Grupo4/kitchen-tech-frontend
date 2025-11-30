@@ -29,9 +29,11 @@
       <save-order-component
           :is-visible="showModal"
           :restaurant-id="String(restaurantId)"
+          :account-to-edit="accountToEdit"
           @save-sale="$emit('save-sale', $event)"
           @close-modal="closeModal"
       />
+
       <div class="summary">
         <span>Subtotal</span><span>S/{{ subtotal.toFixed(2) }}</span>
       </div>
@@ -57,6 +59,7 @@ export default {
     igv: Number,
     total: Number,
     restaurantId: { type: String, required: true },
+    accountToEdit: Object
   },
   data() {
     return {

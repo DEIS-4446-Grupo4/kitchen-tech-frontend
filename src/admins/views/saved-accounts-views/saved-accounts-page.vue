@@ -108,14 +108,12 @@ export default {
     async loadAccountProducts(accountId) {
       try {
         const accountData = await accountService.getAccountById(accountId);
-        console.log("accountData", accountData.products);
         const cart = (accountData.products || []).map(p => ({
           id: p.productId,
           productName: p.productName,
           price: p.price,
           quantity: p.quantity
         }));
-        console.log(this.cart);
 
         // persist account and cart to localStorage (existing behavior)
         localStorage.setItem("accountData", JSON.stringify(accountData));
