@@ -10,13 +10,11 @@ const getAuthToken = () => {
 const getRestaurantById = async (restaurantId) => {
     try {
         const token = getAuthToken();
-        console.log("Token:", token);
         const response = await axiosInstance.get(`${API_URL_RESTAURANT}/${restaurantId}`, {
             headers: {
                 Authorization: `Bearer ${token}`
             }
         });
-        console.log(response.data);
         return response.data;
     } catch (error) {
         console.error("Error fetching user:", error.response ? error.response.data : error.message);

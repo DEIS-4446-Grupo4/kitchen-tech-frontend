@@ -89,15 +89,12 @@ export default {
     const accountData = JSON.parse(localStorage.getItem("accountData")) || null;
 
     if (accountData && accountData.id) {
-      console.log("Encontre el id en casing-page: " + accountData.id);
       this.currentAccount = accountData;
 
       const cartData = JSON.parse(localStorage.getItem("cartData")) || [];
       if (cartData.length) {
         this.cartStore.cart = cartData;
       }
-    } else {
-      console.log("No se encontró accountData en localStorage.");
     }
 
   },
