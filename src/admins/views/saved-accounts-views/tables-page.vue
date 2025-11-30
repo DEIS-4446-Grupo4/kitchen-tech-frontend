@@ -38,6 +38,7 @@
                   :table="table"
                   @select-table="selectTable"
                   @delete-table="deleteTable"
+                  @update-table-status="handleUpdateTableStatus"
               />
             </template>
 
@@ -79,7 +80,7 @@ import TablesComponent from "@/admins/views/saved-accounts-views/components/tabl
 import TableConfigComponent from "@/admins/views/saved-accounts-views/components/table-config-component.vue";
 import { tablesStore } from "@/public/stores/tablesStore";
 import userService from "@/public/services/userService";
-import { tablesService } from "@/public/services/tablesService";
+import {tablesService as tableService, tablesService} from "@/public/services/tablesService";
 
 export default {
   components: {
@@ -172,6 +173,20 @@ export default {
       this.showModal = false;
       this.tableBeingEdited = null;
     },
+
+    async handleUpdateTableStatus({ id, status }) {
+      try {
+        const table = await tableService.getTableById(id);
+        table.tableStatus = status;
+        await tableService.updateTable(table);
+
+        // Forzar recarga del store
+        localStorage.removeItem("tables_" + this.restaurantId);
+        await tablesStore.loadTables(this.restaurantId, true);
+      } catch (err) {
+        console.error("Error updating table status:", err);
+      }
+    }
   },
 
   computed: {

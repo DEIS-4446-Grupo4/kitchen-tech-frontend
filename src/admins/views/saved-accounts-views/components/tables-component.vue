@@ -4,19 +4,27 @@
       <p class="table-number">Table {{ table.tableNumber }}</p>
 
       <div class="status-bullet" :class="statusClass"></div>
-
       <img
-          :src="require('/public/assets/images/delete.png')"
-          class="delete-button"
-          @click.stop="$emit('delete-table', table.id)"
-          alt="delete"
-      />
+            :src="require('/public/assets/images/delete.png')"
+            class="delete-button"
+            @click.stop="$emit('delete-table', table.id)"
+            alt="delete"
+        />
     </div>
 
-    <div class="card-body">
+    <div class="card-body" v-if="table.tableStatus !== 'ToClean'">
       <p class="table-stats">Capacity: {{ table.tableCapacity }}</p>
       <p class="table-stats">Guests: {{ table.tableGuests ?? 0 }}</p>
     </div>
+
+    <!-- Mostrar botón solo si está ToClean -->
+    <button
+        v-if="table.tableStatus === 'ToClean'"
+        class="free-button"
+        @click.stop="markAsFree"
+    >
+      Set Free
+    </button>
   </div>
 </template>
 
@@ -44,6 +52,10 @@ export default {
   methods: {
     selectTable() {
       this.$emit("select-table", this.table);
+    },
+    markAsFree() {
+      // Emitimos el evento al padre con el id de la mesa
+      this.$emit("update-table-status", { id: this.table.id, status: "Free" });
     },
   },
 };
@@ -109,5 +121,23 @@ export default {
 }
 .status-yellow {
   background-color: #cfa553; /* Cambiado a background-color */
+}
+
+.buttons {
+  justify-content: center;
+  align-items: center;
+}
+.free-button {
+  padding: 10px 10px;
+  font-size: 0.7rem;
+  border-radius: 4px;
+  border: none;
+  font-weight: 600;
+  background-color: #2f2e3c;
+  color: #c3c3c3;
+  cursor: pointer;
+}
+.free-button:hover {
+  background-color: #201e35;
 }
 </style>
