@@ -137,22 +137,34 @@ export default {
       }
 
       try {
-        await accountService.deleteAccount(accountId);
-
-        // intentar liberar mesa solo si existía la cuenta
+        // 1️⃣ Obtener la cuenta antes de eliminarla
         const account = await accountService.getAccountById(accountId).catch(() => null);
+
+        // 2️⃣ Liberar la mesa si aplica
         if (account?.table?.id) {
           const table = await tableService.getTableById(account.table.id);
           if (table) {
-            table.tableStatus = "ToClean";
+            table.tableStatus = "ToClean"; // o "Free" según corresponda
             await tableService.updateTable(table);
           }
         }
 
+        // 3️⃣ Borrar la cuenta
+        await accountService.deleteAccount(accountId);
+
+        // 4️⃣ Limpiar carrito y UI
         this.cartStore.clear();
         this.currentAccount = null;
         localStorage.removeItem("accountData");
+
+        // 5️⃣ Forzar recarga de stores
+        localStorage.removeItem("tables_" + this.restaurantId);
+        await tablesStore.loadTables(this.restaurantId, true); // true para forzar recarga
+        localStorage.setItem("accounts_dirty", "1");
+        await accountsStore.loadAccounts(this.restaurantId);
+
         this.showChargeConfirmation = true;
+
       } catch (e) {
         console.error("Error cobrando cuenta:", e);
         alert("No se pudo cobrar la cuenta. Revisa la consola.");
