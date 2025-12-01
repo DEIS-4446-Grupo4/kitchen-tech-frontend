@@ -37,31 +37,40 @@ export const productsStore = reactive({
             localStorage.removeItem("products_dirty");
         } catch (error) {
             console.error("Error loading products:", error);
-
             if (cached) {
-                try {
-                    this.products = JSON.parse(cached)
-                } catch (error) {
-                    console.warn("Invalid products cache, unable to load products", error);
-                }
+                try { this.products = JSON.parse(cached) }
+                catch (error) { console.warn("Invalid cache", error); }
             }
-        } finally {
-            this.loading = false;
-        }
+        } finally { this.loading = false; }
     },
 
-    async refresh(restaurantId){
+    // Fuerza refrescar los productos desde backend
+    async refresh(restaurantId) {
         localStorage.setItem("products_dirty", "1");
         await this.loadProducts(restaurantId);
     },
 
+    // Buscar producto por nombre
     findByName(query) {
         if (!this.products || !query) return [];
         const q = query.toLowerCase();
         return this.products.filter(p => p.productName?.toLowerCase().includes(q));
     },
 
-    getById(id){
+    // Obtener producto por ID
+    getById(id) {
         return this.products.find(p => String(p.id) === String(id));
+    },
+
+    // Agregar producto manualmente al store y cache
+    addProductLocally(product) {
+        this.products.unshift(product); // Añadir al inicio
+        localStorage.setItem("products_" + product.restaurantId, JSON.stringify(this.products));
+        localStorage.removeItem("products_dirty");
+    },
+
+    async reloadProducts(restaurantId) {
+        localStorage.setItem("products_dirty", "1"); // Marca cache como sucio
+        await this.loadProducts(restaurantId);        // Recarga desde backend
     }
 });

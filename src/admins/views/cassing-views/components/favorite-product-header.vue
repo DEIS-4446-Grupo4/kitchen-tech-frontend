@@ -7,6 +7,7 @@
         placeholder="Buscar productos..."
         @focus="showDropdown = true"
     />
+    <button class="reload" @click="reloadProducts" :disabled="productsStore.loading">Reload</button>
     <ul v-if="showDropdown && filteredProducts.length" class="dropdown">
       <li v-for="p in filteredProducts" :key="p.id" class="product-card">
         <div class="card-content">
@@ -27,7 +28,8 @@ export default {
     isEditMode: Boolean,
     restaurantName: String,
     cart: Array,
-    selectedSlot: Number
+    selectedSlot: Number,
+    restaurantId: Number
   },
   data() {
     return {
@@ -54,6 +56,10 @@ export default {
     },
     emitAddToCart(p) {
       this.$emit("add-to-cart", p);
+    },
+    async reloadProducts() {
+      if (!this.restaurantId) return;
+      await productsStore.reloadProducts(this.restaurantId);
     }
   }
 };
@@ -157,5 +163,19 @@ export default {
 }
 .icon {
   color: #31304A;
+}
+.reload{
+  background-color: #31304A;/* ejemplo de botón principal del sistema */
+  color: #D3D2E5;
+  font-weight: bold;
+  border: none;
+  padding: 0.8rem 2rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: 0.2s all;
+}
+
+.reload:hover{
+  background-color: #201e35;
 }
 </style>

@@ -10,6 +10,7 @@
               :restaurant-name="restaurantName"
               :selected-slot="selectedSlot"
               :cart="cartStore.cart"
+              :restaurant-id="restaurantId"
               @refresh-products="refreshProducts"
               @add-to-cart="handleAddToCart"
           />
